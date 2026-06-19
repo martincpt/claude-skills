@@ -39,13 +39,15 @@ class TestUserService:
 
 ## Fixtures for Setup/Teardown
 
+> Always call the decorator with parentheses — `@pytest.fixture()`, never bare `@pytest.fixture` (ruff `flake8-pytest-style`, `fixture-parentheses = true`).
+
 ```python
 # conftest.py - shared fixtures
 import pytest
 from typing import Iterator
 from myapp.database import Database, Session
 
-@pytest.fixture
+@pytest.fixture()
 def db() -> Iterator[Database]:
     """Provide database instance with cleanup."""
     database = Database("test.db")
@@ -54,7 +56,7 @@ def db() -> Iterator[Database]:
     database.drop_tables()
     database.close()
 
-@pytest.fixture
+@pytest.fixture()
 def db_session(db: Database) -> Iterator[Session]:
     """Provide database session with rollback."""
     session = db.create_session()
@@ -62,7 +64,7 @@ def db_session(db: Database) -> Iterator[Session]:
     session.rollback()
     session.close()
 
-@pytest.fixture
+@pytest.fixture()
 def sample_user() -> User:
     """Provide test user."""
     return User(id=1, name="Test User", email="test@example.com")
@@ -98,12 +100,14 @@ def reset_state() -> Iterator[None]:
 
 ## Parametrize for Multiple Cases
 
+> Pass the argument names as a **tuple of strings** — `parametrize(("input", "expected"), ...)` — not a comma-separated `"input,expected"` string. A single argument name stays a plain string (`parametrize("name", ...)`). (ruff `flake8-pytest-style`, PT006.)
+
 ```python
 import pytest
 
 # Parametrize test function
 @pytest.mark.parametrize(
-    "input,expected",
+    ("input", "expected"),
     [
         (2, 4),
         (3, 9),
@@ -125,7 +129,7 @@ def test_power(base: int, exponent: int) -> None:
 
 # Parametrize with IDs
 @pytest.mark.parametrize(
-    "email,valid",
+    ("email", "valid"),
     [
         ("user@example.com", True),
         ("invalid", False),
@@ -139,7 +143,7 @@ def test_email_validation(email: str, valid: bool) -> None:
     assert is_valid_email(email) == valid
 
 # Parametrize with fixtures
-@pytest.fixture
+@pytest.fixture()
 def user_factory():
     """Provide a factory that builds users."""
 
@@ -224,7 +228,7 @@ def test_retry_logic() -> None:
     assert mock_api.call.call_count == 3
 
 # Async mock
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_async_function() -> None:
     """Fetch a user through an async mock."""
     mock_db = AsyncMock()
@@ -244,14 +248,14 @@ import pytest
 import asyncio
 
 # Mark async test
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_async_fetch() -> None:
     """Await a successful async fetch."""
     result = await fetch_data("https://api.example.com")
     assert result["status"] == "ok"
 
 # Async fixture
-@pytest.fixture
+@pytest.fixture()
 async def async_db() -> AsyncIterator[AsyncDatabase]:
     """Provide a connected async database."""
     db = AsyncDatabase()
@@ -259,14 +263,14 @@ async def async_db() -> AsyncIterator[AsyncDatabase]:
     yield db
     await db.disconnect()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_async_query(async_db: AsyncDatabase) -> None:
     """Query the async database."""
     result = await async_db.query("SELECT * FROM users")
     assert len(result) > 0
 
 # Test concurrent operations
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_concurrent_requests() -> None:
     """Fetch multiple URLs concurrently."""
     urls = ["http://example.com/1", "http://example.com/2"]
@@ -275,6 +279,8 @@ async def test_concurrent_requests() -> None:
 ```
 
 ## Pytest Markers
+
+> Always call marks with parentheses — `@pytest.mark.slow()`, `@pytest.mark.asyncio()` — even when they take no arguments (ruff `flake8-pytest-style`, `mark-parentheses = true`, PT023).
 
 ```python
 import pytest
@@ -298,13 +304,13 @@ def test_known_bug() -> None:
     assert buggy_function() == expected_value
 
 # Custom markers
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_slow_operation() -> None:
     """Exercise a slow operation."""
     time.sleep(5)
     assert True
 
-@pytest.mark.integration
+@pytest.mark.integration()
 def test_integration() -> None:
     """Ping an external service."""
     assert external_service.ping()
@@ -399,7 +405,7 @@ def test_user_creation(user: User) -> None:
 #     test_models.py     - Unit tests
 
 # Fixture factory pattern
-@pytest.fixture
+@pytest.fixture()
 def user_factory(db_session: Session):
     """Provide a factory that creates and cleans up users."""
     created_users: list[User] = []

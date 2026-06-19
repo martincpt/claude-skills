@@ -223,14 +223,14 @@ import pytest
 from pathlib import Path
 from pydantic import ValidationError
 
-@pytest.fixture
+@pytest.fixture()
 def config_file(tmp_path: Path) -> Path:
     """Write a minimal config file and return its path."""
     cfg = tmp_path / "config.txt"
     cfg.write_text("host=localhost\nport=8080\n")
     return cfg
 
-@pytest.mark.parametrize("port,valid", [(8080, True), (0, False), (99999, False)])
+@pytest.mark.parametrize(("port", "valid"), [(8080, True), (0, False), (99999, False)])
 def test_app_config_port_validation(port: int, valid: bool) -> None:
     """Reject ports outside the valid 1-65535 range."""
     if valid:

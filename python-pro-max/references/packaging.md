@@ -99,6 +99,10 @@ ignore = []
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]  # Ignore unused imports in __init__.py
 
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = true
+mark-parentheses = true
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
