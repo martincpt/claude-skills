@@ -5,12 +5,20 @@
 ```python
 import asyncio
 from collections.abc import Coroutine
+from pydantic import BaseModel
+
+# Model the response shape instead of returning a bare dict
+class FetchResult(BaseModel):
+    """Outcome of a single fetch."""
+
+    url: str
+    status: str
 
 # Basic async function
-async def fetch_data(url: str) -> dict[str, str]:
+async def fetch_data(url: str) -> FetchResult:
     """Fetch data for a URL (simulated I/O)."""
     await asyncio.sleep(1)  # Simulate I/O
-    return {"url": url, "status": "ok"}
+    return FetchResult(url=url, status="ok")
 
 # Running async code
 async def main() -> None:
@@ -22,13 +30,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 # Multiple concurrent operations
-async def fetch_all(urls: list[str]) -> list[dict[str, str]]:
+async def fetch_all(urls: list[str]) -> list[FetchResult]:
     """Fetch every URL concurrently."""
     tasks = [fetch_data(url) for url in urls]
     return await asyncio.gather(*tasks)
 
 # Error handling with gather
-async def safe_fetch_all(urls: list[str]) -> list[dict[str, str] | None]:
+async def safe_fetch_all(urls: list[str]) -> list[FetchResult | None]:
     """Fetch every URL concurrently, returning None for failures."""
     tasks = [fetch_data(url) for url in urls]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -98,16 +106,17 @@ class AsyncDatabaseConnection:
             await self._conn.close()
 
     async def query(self, sql: str) -> list[dict[str, Any]]:
-        """Run a SQL query over the open connection."""
+        """Run a SQL query, returning raw rows (a generic, schema-agnostic handler)."""
         if not self._conn:
             raise RuntimeError("Not connected")
         return await self._conn.execute(sql)
 
-# Usage
-async def get_users() -> list[dict[str, Any]]:
+# Usage — query() returns raw rows; the util parses them into model instances
+async def get_users() -> list[User]:
     """Fetch all users via a managed connection."""
     async with AsyncDatabaseConnection("postgresql://...") as db:
-        return await db.query("SELECT * FROM users")
+        rows = await db.query("SELECT * FROM users")
+        return [User(**row) for row in rows]
 
 # Async context manager with contextlib
 from contextlib import asynccontextmanager
@@ -148,16 +157,17 @@ async def process_file(filepath: str) -> int:
     return count
 
 # Async generator with cleanup
-async def fetch_paginated(url: str) -> AsyncIterator[dict[str, Any]]:
-    """Yield pages from a paginated endpoint until exhausted."""
+async def fetch_paginated(url: str) -> AsyncIterator[Item]:
+    """Yield items from a paginated endpoint, parsed into models, until exhausted."""
     page = 1
     session = await create_session()
     try:
         while True:
-            data = await session.get(f"{url}?page={page}")
-            if not data:
+            rows = await session.get(f"{url}?page={page}")
+            if not rows:
                 break
-            yield data
+            for row in rows:
+                yield Item(**row)  # validate each raw row into a model
             page += 1
     finally:
         await session.close()
@@ -201,9 +211,9 @@ class SharedResource:
     def __init__(self) -> None:
         """Initialize the SharedResource instance."""
         self._lock = asyncio.Lock()
-        self._data: dict[str, Any] = {}
+        self._data: dict[str, int] = {}
 
-    async def update(self, key: str, value: Any) -> None:
+    async def update(self, key: str, value: int) -> None:
         """Atomically add a value under a key."""
         async with self._lock:
             # Critical section
@@ -290,19 +300,19 @@ async def run_pipeline(num_items: int, num_workers: int) -> None:
 
 ```python
 # Timeout for single operation
-async def fetch_with_timeout(url: str, timeout: float) -> dict[str, Any]:
-    """Fetch a URL, returning an error dict on timeout."""
+async def fetch_with_timeout(url: str, timeout: float) -> FetchResult | None:
+    """Fetch a URL, returning None on timeout."""
     try:
         async with asyncio.timeout(timeout):
             return await fetch_data(url)
     except TimeoutError:
-        return {"error": "timeout"}
+        return None
 
 # Timeout for multiple operations
 async def fetch_all_with_timeout(
     urls: list[str],
     timeout: float
-) -> list[dict[str, Any] | None]:
+) -> list[FetchResult | None]:
     """Fetch all URLs, returning Nones if the batch times out."""
     try:
         async with asyncio.timeout(timeout):

@@ -29,7 +29,7 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 ## Core Workflow
 
 1. **Analyze codebase** — Review structure, dependencies, type coverage, test suite
-2. **Design interfaces** — Define protocols, dataclasses, type aliases
+2. **Design interfaces** — Define protocols, Pydantic models (or dataclasses), type aliases
 3. **Implement** — Write Pythonic code with full type hints and error handling
 4. **Test** — Create comprehensive pytest suite with >90% coverage
 5. **Validate** — Run `mypy --strict`, `black`, `ruff`
@@ -58,7 +58,8 @@ Load detailed guidance based on context:
 - Test coverage exceeding 90% with pytest
 - Use `X | None` instead of `Optional[X]` (Python 3.10+)
 - Async/await for I/O-bound operations
-- Dataclasses over manual __init__ methods
+- Pydantic models for validation and data transfer; dataclasses (over manual `__init__`) for simple internal structures or when Pydantic is unavailable
+- Strict, self-describing types for any data with a known shape — a Pydantic model, dataclass, or `NamedTuple`; a plain `tuple[bool, str]` is fine for trivial returns
 - Context managers for resource handling
 
 ### MUST NOT DO
@@ -69,6 +70,8 @@ Load detailed guidance based on context:
 - Use bare except clauses
 - Hardcode secrets or configuration
 - Use deprecated stdlib modules (use pathlib not os.path)
+- Use a `dict`/`Mapping` as an argument or return type when the keys are known ahead of time — model the data instead (see Data Modeling & Dictionaries)
+- Return ambiguous, unstructured data when the shape can be specified
 
 ## Docstring Style
 
@@ -80,19 +83,19 @@ Google style, but lean. Let descriptive names and type hints carry the weight.
 
 ```python
 # One line — the name and signature say the rest:
-def parse_config(content: str) -> dict[str, str]:
-    """Parse key-value pairs from raw config text."""
+def slugify(title: str) -> str:
+    """Convert a title into a URL-safe slug."""
     ...
 
 # Full form — reserved for important components with edge cases worth documenting:
-def read_config(path: Path) -> dict[str, str]:
+def read_config(path: Path) -> AppConfig:
     """Read configuration from a file.
 
     Args:
         path: Path to the configuration file.
 
     Returns:
-        Parsed key-value configuration entries.
+        The parsed application configuration.
 
     Raises:
         FileNotFoundError: If the config file does not exist.
@@ -101,52 +104,104 @@ def read_config(path: Path) -> dict[str, str]:
     ...
 ```
 
+## Data Modeling & Dictionaries
+
+Data with a known shape gets a type that describes it. Dictionaries are too loose — relying on specific keys defeats type checking and hides the contract.
+
+- **Prefer Pydantic models.** Use Pydantic over dataclasses whenever it's available: it gives runtime validation, richer validators, and first-class support in modern frameworks (FastAPI, etc.). Reach for a dataclass or `NamedTuple` only for simple internal structures or when Pydantic isn't a dependency.
+- **Use a transfer model for anything crossing a boundary** (function returns, API payloads, service-to-service data). Never hand back a bare `dict` when the attributes and types can be named.
+- **Tuples for trivial returns.** A `tuple[bool, str]` (e.g. `(ok, message)`) is enough when there are only a couple of unnamed values; promote to a model once the shape grows or the fields deserve names.
+- **Dicts/Mappings only for genuinely dynamic data** — keys that aren't known ahead of time and are computed at runtime: language→translation maps or id→object lookups built for optimization. If you ever rely on a specific literal key, it should have been a model.
+- **Inbound dicts are fine — validate them into a model immediately.** Data arriving as a `dict` from an API, JSON, a config file, or a generic DB-row handler is expected; parse it straight into a model (`MyModel(**values)` or `MyModel.model_validate(values)`) instead of passing the raw dict around or relying on its keys downstream.
+
+```python
+from typing import Any
+
+from pydantic import BaseModel
+
+# Bad — known keys hidden in a dict; no validation, no autocomplete:
+def get_user(user_id: int) -> dict[str, Any]:
+    """Load a user by id."""
+    return {"id": user_id, "name": "Ada", "active": True}
+
+# Good — the shape is explicit, validated, and self-documenting:
+class User(BaseModel):
+    """A user record."""
+
+    id: int
+    name: str
+    active: bool = True
+
+def get_user(user_id: int) -> User:
+    """Load a user by id."""
+    return User(id=user_id, name="Ada")
+
+# Fine — a trivial two-value return needs no model:
+def validate(value: str) -> tuple[bool, str]:
+    """Return whether the value is valid and a human-readable reason."""
+    if not value:
+        return False, "value is empty"
+    return True, "ok"
+
+# Fine — keys are genuinely dynamic (unknown languages at design time):
+def load_translations(locale: str) -> dict[str, str]:
+    """Return the message-key to translated-string map for a locale."""
+    ...
+
+# Fine — receive an external dict, but validate it into a model right away:
+def parse_user(payload: dict[str, Any]) -> User:
+    """Validate an inbound API/JSON payload into a User."""
+    return User(**payload)  # or: User.model_validate(payload)
+```
+
 ## Code Examples
+
+### Pydantic model with validation
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class AppConfig(BaseModel):
+    """Application configuration with validation."""
+
+    host: str
+    port: int = Field(ge=1, le=65535)
+    debug: bool = False
+    allowed_origins: list[str] = Field(default_factory=list)
+
+    @field_validator("host", mode="after")
+    @classmethod
+    def strip_host(cls, value: str) -> str:
+        """Normalize the host by stripping surrounding whitespace."""
+        return value.strip()
+```
 
 ### Type-annotated function with error handling
 ```python
 from pathlib import Path
 
-def read_config(path: Path) -> dict[str, str]:
+def read_config(path: Path) -> AppConfig:
     """Read configuration from a file.
 
     Args:
         path: Path to the configuration file.
 
     Returns:
-        Parsed key-value configuration entries.
+        The parsed and validated application configuration.
 
     Raises:
         FileNotFoundError: If the config file does not exist.
         ValueError: If a line cannot be parsed.
     """
-    config: dict[str, str] = {}
-    with path.open() as f:
-        for line in f:
-            key, _, value = line.partition("=")
-            if not key.strip():
-                raise ValueError(f"Invalid config line: {line!r}")
-            config[key.strip()] = value.strip()
-    return config
-```
+    # A dict is fine as an intermediate for genuinely dynamic input...
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        if not sep:
+            raise ValueError(f"Invalid config line: {line!r}")
+        values[key.strip()] = value.strip()
 
-### Dataclass with validation
-```python
-from dataclasses import dataclass, field
-
-@dataclass
-class AppConfig:
-    """Application configuration with port-range validation."""
-
-    host: str
-    port: int
-    debug: bool = False
-    allowed_origins: list[str] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        """Validate fields after initialization."""
-        if not (1 <= self.port <= 65535):
-            raise ValueError(f"Invalid port: {self.port}")
+    # ...but hand back a validated model, never the raw dict.
+    return AppConfig(**values)
 ```
 
 ### Async pattern
@@ -166,6 +221,7 @@ async def fetch_all(urls: list[str]) -> list[bytes]:
 ```python
 import pytest
 from pathlib import Path
+from pydantic import ValidationError
 
 @pytest.fixture
 def config_file(tmp_path: Path) -> Path:
@@ -180,7 +236,7 @@ def test_app_config_port_validation(port: int, valid: bool) -> None:
     if valid:
         AppConfig(host="localhost", port=port)
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             AppConfig(host="localhost", port=port)
 ```
 

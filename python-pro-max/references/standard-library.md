@@ -3,6 +3,7 @@
 ## Pathlib for File Operations
 
 ```python
+from dataclasses import dataclass
 from pathlib import Path
 
 # Path creation and manipulation
@@ -11,35 +12,44 @@ config_file = project_root / "config" / "settings.toml"
 data_dir = Path.home() / "data"
 
 # File operations
-def read_config(config_path: Path) -> dict[str, str]:
-    """Read and parse a config file."""
+def read_config(config_path: Path) -> AppConfig:
+    """Read a config file and parse it into a validated model."""
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
 
-    # Read text
+    # Read text (use config_path.read_bytes() for binary files)
     content = config_path.read_text(encoding="utf-8")
 
-    # Read bytes
-    binary = config_path.read_bytes()
-
-    return parse_config(content)
+    # Parse the dynamic key-value text, then validate into a model
+    return AppConfig(**parse_key_values(content))
 
 # Path traversal
 def find_python_files(directory: Path) -> list[Path]:
     """Recursively find all Python files under a directory."""
     return list(directory.rglob("*.py"))
 
-def get_file_info(path: Path) -> dict[str, Any]:
+@dataclass(frozen=True)
+class FileInfo:
+    """Basic stat info for a path."""
+
+    size: int
+    modified: float
+    is_file: bool
+    is_dir: bool
+    suffix: str
+    stem: str
+
+def get_file_info(path: Path) -> FileInfo:
     """Return basic stat info for a path."""
     stat = path.stat()
-    return {
-        "size": stat.st_size,
-        "modified": stat.st_mtime,
-        "is_file": path.is_file(),
-        "is_dir": path.is_dir(),
-        "suffix": path.suffix,
-        "stem": path.stem,
-    }
+    return FileInfo(
+        size=stat.st_size,
+        modified=stat.st_mtime,
+        is_file=path.is_file(),
+        is_dir=path.is_dir(),
+        suffix=path.suffix,
+        stem=path.stem,
+    )
 
 # Creating directories
 def ensure_dir(path: Path) -> None:
@@ -58,6 +68,8 @@ def process_with_temp() -> None:
 ```
 
 ## Dataclasses for Data Structures
+
+> Prefer **Pydantic** models for validation and for any data crossing a boundary (see the Data Modeling section in `SKILL.md`). Dataclasses shown here fit simple internal structures and cases where Pydantic isn't a dependency.
 
 ```python
 from dataclasses import dataclass, field, asdict, replace
@@ -155,10 +167,10 @@ def fibonacci(n: int) -> int:
     return fibonacci(n - 1) + fibonacci(n - 2)
 
 @lru_cache(maxsize=128)  # LRU cache with size limit
-def fetch_user(user_id: int) -> dict[str, Any]:
+def fetch_user(user_id: int) -> User:
     """Fetch a user record by id (cached)."""
     # Expensive database call
-    return {"id": user_id, "name": "User"}
+    return User(id=user_id, name="User", email="user@example.com")
 
 # Cached property
 class DataProcessor:

@@ -5,17 +5,26 @@
 ```python
 from typing import Any
 from collections.abc import Sequence, Mapping
+from pydantic import BaseModel
+
+# Model the data instead of returning bare dicts with known keys
+class User(BaseModel):
+    """A user record."""
+
+    name: str
+    age: int
+    active: bool = True
 
 # Function signatures
-def process_user(name: str, age: int, active: bool = True) -> dict[str, Any]:
+def process_user(name: str, age: int, active: bool = True) -> User:
     """Build a user record from individual fields."""
-    return {"name": name, "age": age, "active": active}
+    return User(name=name, age=age, active=active)
 
 # Use | for unions (Python 3.10+)
-def find_user(user_id: int | str) -> dict[str, Any] | None:
-    """Look up a user by integer or string id."""
+def find_user(user_id: int | str) -> User | None:
+    """Look up a user by id, returning None if absent."""
     if isinstance(user_id, int):
-        return {"id": user_id}
+        return User(name="Ada", age=36)
     return None
 
 # Collections - prefer collections.abc
@@ -140,7 +149,8 @@ def open_file(path: str, mode: Mode) -> None:
 JsonDict: TypeAlias = dict[str, Any]
 UserId: TypeAlias = int | str
 
-# TypedDict for structured dictionaries
+# TypedDict types dict-shaped data you don't control (e.g. external JSON).
+# For data you create, pass around, or validate, prefer a Pydantic model.
 class UserDict(TypedDict):
     """Structured shape for a user payload."""
 
