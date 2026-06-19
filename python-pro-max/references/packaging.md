@@ -54,6 +54,8 @@ Built from the team's standard template — `uv`, flat **app** layout, `select =
 `[dependency-groups]`, and `[tool.uv] package = false` (an application is deployed, not
 distributed as a wheel).
 
+> New projects target **Python 3.13**; the skill's code patterns are compatible down to **3.11**.
+
 ```toml
 [project]
 name = "my-project"
@@ -61,7 +63,7 @@ version = "0.1.0"
 description = "A runnable Python application"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "fire>=0.7.0",
     "pydantic>=2.10.0",
@@ -100,7 +102,7 @@ line-length = 88
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -152,7 +154,7 @@ fixture-parentheses = true
 mark-parentheses = true
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = true
 ignore_missing_imports = true
 
@@ -235,8 +237,8 @@ uv build                        # sdist + wheel into dist/
 uv publish                      # Publish to PyPI (UV_PUBLISH_TOKEN)
 
 # Python versions (replaces pyenv)
-uv python install 3.11
-uv python pin 3.11              # Writes .python-version
+uv python install 3.13
+uv python pin 3.13              # Writes .python-version
 ```
 
 ## Virtual Environments
@@ -248,8 +250,8 @@ source .venv/bin/activate       # Optional — `uv run <cmd>` needs no activatio
 .venv\Scripts\activate          # Windows
 
 # Pin / install interpreters with uv (no separate pyenv needed)
-uv python install 3.11
-uv python pin 3.11              # Writes .python-version
+uv python install 3.13
+uv python pin 3.13              # Writes .python-version
 ```
 
 ## Package __init__.py
@@ -422,7 +424,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
