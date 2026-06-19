@@ -1,4 +1,4 @@
-"""Mongo with Beanie integration."""
+"""Mongo with Beanie connector."""
 
 import importlib
 import inspect
@@ -44,7 +44,7 @@ class MongoWithBeanie:
         """Initialize Mongo with Beanie."""
         if is_testing:
             if hasattr(cls, "instance"):
-                return cls.instance  # use one shared instance of across all tests
+                return cls.instance  # one shared instance across all tests
 
             from mongomock_motor import AsyncMongoMockClient
 

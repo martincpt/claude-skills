@@ -34,14 +34,33 @@ class User(Document):
 
 ## Connector
 
+Keep the integration in a `mongo` package under the main package, with the connector and
+its test fixture co-located:
+
+```
+app/mongo/
+├── __init__.py     # re-exports MongoWithBeanie
+├── connector.py    # the connector
+└── fixtures.py     # the pytest fixture
+```
+
+```python
+# app/mongo/__init__.py
+"""Mongo with Beanie integration."""
+
+from app.mongo.connector import MongoWithBeanie
+
+__all__ = [MongoWithBeanie.__name__]
+```
+
 `MongoWithBeanie` owns the client, database, and Beanie initialization. `init` is a
 classmethod that builds a single shared instance; in testing mode it swaps the real client
 for `mongomock_motor`'s mock. Document models are discovered by importing the configured
 modules and collecting every `Document` subclass.
 
 ```python
-# app/mongo.py  (or my_project/mongo.py)
-"""Mongo with Beanie integration."""
+# app/mongo/connector.py
+"""Mongo with Beanie connector."""
 
 import importlib
 import inspect
@@ -153,13 +172,22 @@ await MongoWithBeanie.close()
 
 ## Testing
 
-The `mongo_client` fixture stands up an in-memory MongoDB via `mongomock_motor` and patches
-the gaps so it behaves like the real async client (DBRef/UUID lookups, async `aggregate`
-and `close` wrappers, `list_collection_names` kwargs). Tests get a fully initialized Beanie
-connection and a clean database each run. See `testing.md` for the broader pytest setup.
+The `mongo` fixture lives next to the connector (`app/mongo/fixtures.py`). It stands up an
+in-memory MongoDB via `mongomock_motor` and patches the gaps so it behaves like the real
+async client (DBRef/UUID lookups, async `aggregate` and `close` wrappers,
+`list_collection_names` kwargs). Tests get a fully initialized Beanie connection and a clean
+database each run. Expose it to the suite by registering the module as a plugin in
+`tests/conftest.py`:
 
 ```python
 # tests/conftest.py
+pytest_plugins = ["app.mongo.fixtures"]
+```
+
+See `testing.md` for the broader pytest setup.
+
+```python
+# app/mongo/fixtures.py
 """Fixtures for the Beanie ODM integration."""
 
 from collections.abc import AsyncIterable, Iterable
@@ -174,11 +202,13 @@ from mongomock.filtering import iter_key_candidates
 from mongomock_motor import AsyncMongoMockClient, AsyncMongoMockCollection
 from pytest_mock import MockerFixture
 
-from app.mongo import MongoWithBeanie
+from app.config import settings
+
+from .connector import MongoWithBeanie
 
 
 @pytest_asyncio.fixture()
-async def mongo_client(mocker: MockerFixture) -> AsyncIterable[MongoWithBeanie]:
+async def mongo(mocker: MockerFixture) -> AsyncIterable[MongoWithBeanie]:
     """Mongo with Beanie fixture backed by an in-memory mock."""
 
     # Patch iter_key_candidates to handle DBRefs and UUIDs
@@ -225,26 +255,26 @@ async def mongo_client(mocker: MockerFixture) -> AsyncIterable[MongoWithBeanie]:
     )
 
     # Initialize the connector in testing mode (swaps in the mock client)
-    mongo_with_beanie = await MongoWithBeanie.init(
+    mongo = await MongoWithBeanie.init(
         host="mongodb://mock:password@localhost:27017",
         database_name="mock_db",
-        document_model_modules=["app.models"],
+        document_model_modules=settings.document_model_modules,
         is_testing=True,
     )
 
     # Sanity-check we really got the mock, not a live connection
-    if not isinstance(mongo_with_beanie.client, AsyncMongoMockClient):
+    if not isinstance(mongo.client, AsyncMongoMockClient):
         msg = "Mongo client is not an instance of AsyncMongoMockClient."
         raise TypeError(msg)
 
-    if mongo_with_beanie.database.name != "mock_db":
+    if mongo.database.name != "mock_db":
         msg = "Mongo database name is not set to 'mock_db'."
         raise ValueError(msg)
 
-    yield mongo_with_beanie
+    yield mongo
 
     # Clean up: drop the database so each test starts fresh
-    await mongo_with_beanie.client.drop_database(mongo_with_beanie.database.name)
+    await mongo.client.drop_database(mongo.database.name)
 
 
 def mock_cursor_query(mocker: MockerFixture, items: list) -> None:
