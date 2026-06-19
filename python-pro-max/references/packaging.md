@@ -41,10 +41,14 @@ my-project/                 # repository: slugified name
 │   ├── __init__.py         # package metadata (__title__/__version__ from pyproject)
 │   ├── config.py           # Pydantic Settings + pyproject access
 │   ├── cli.py              # Fire launcher (entry point: app.cli:run)
-│   ├── main.py
-│   └── api/
+│   ├── main.py             # lifecycle: startup/shutdown, serve
+│   ├── models.py           # Beanie document models
+│   └── mongo/              # MongoDB/Beanie integration
+│       ├── __init__.py     # re-exports MongoWithBeanie
+│       ├── connector.py
+│       └── fixtures.py     # the `mongo` test fixture
 └── tests/
-    ├── conftest.py
+    ├── conftest.py         # pytest_plugins = ["app.mongo.fixtures"]
     └── test_app.py
 ```
 

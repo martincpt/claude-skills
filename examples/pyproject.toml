@@ -57,10 +57,7 @@ test = [
 ]
 
 [project.scripts]
-run = "app:run"
-
-[tool.setuptools]
-py-modules = ["app"]
+app = "app.cli:run"
 
 [tool.uv]
 package = false

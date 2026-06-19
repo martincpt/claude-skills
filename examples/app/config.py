@@ -27,10 +27,7 @@ class Settings(BaseSettings):
     api_use_camel_case: bool = False
     frontend_url: str = ""
     is_testing: bool = "pytest" in sys.modules
-    document_model_modules: list[str] = [
-        "app.auth.fastapi_users.models",
-        "app.crud.handlers.beanie.models",
-    ]
+    document_model_modules: list[str] = ["app.models"]
 
 
 @lru_cache
