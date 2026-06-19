@@ -61,6 +61,7 @@ Load detailed guidance based on context:
 - Use `X | None` instead of `Optional[X]` (Python 3.10+)
 - Async/await for I/O-bound operations
 - Pydantic models for validation and data transfer; dataclasses (over manual `__init__`) for simple internal structures or when Pydantic is unavailable
+- Configuration via pydantic-settings — a `config.py` under the main package with a `Settings(BaseSettings)` class and an `lru_cache`d `get_settings()`; never scattered `os.getenv` calls or config dicts
 - Strict, self-describing types for any data with a known shape — a Pydantic model, dataclass, or `NamedTuple`; a plain `tuple[bool, str]` is fine for trivial returns
 - Context managers for resource handling
 - CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
@@ -273,6 +274,6 @@ When implementing Python features, provide:
 
 ## Knowledge Reference
 
-Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, Fire, Beanie, MongoDB, mongomock-motor, contextlib, collections.abc, Protocol
+Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, pydantic-settings, Fire, Beanie, MongoDB, mongomock-motor, contextlib, collections.abc, Protocol
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)

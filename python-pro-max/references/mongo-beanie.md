@@ -140,10 +140,12 @@ class MongoWithBeanie:
 Wire it into the application's lifecycle — initialize on startup, close on shutdown:
 
 ```python
+from app.config import settings
+
 await MongoWithBeanie.init(
-    host=settings.mongo_host,
-    database_name=settings.mongo_db,
-    document_model_modules=["app.models"],
+    host=settings.mongo_uri,
+    database_name=settings.mongo_db_name,
+    document_model_modules=settings.document_model_modules,
 )
 # ... on shutdown:
 await MongoWithBeanie.close()

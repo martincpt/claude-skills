@@ -38,10 +38,10 @@ my-project/                 # repository: slugified name
 ├── .python-version
 ├── uv.lock
 ├── app/                    # main package for a runnable app / API
-│   ├── __init__.py         # package metadata (__version__)
+│   ├── __init__.py         # package metadata (__title__/__version__ from pyproject)
+│   ├── config.py           # Pydantic Settings + pyproject access
 │   ├── cli.py              # Fire launcher (entry point: app.cli:run)
 │   ├── main.py
-│   ├── settings.py
 │   └── api/
 └── tests/
     ├── conftest.py
@@ -254,13 +254,75 @@ uv python install 3.13
 uv python pin 3.13              # Writes .python-version
 ```
 
-## Package __init__.py
+## Configuration (Pydantic Settings)
+
+Configuration lives in a `config.py` directly under the main package, using
+**pydantic-settings**. A `Settings(BaseSettings)` class declares typed, defaulted fields
+that are overridden by environment variables (and a `.env` file); `get_settings()` /
+`get_pyproject()` are `lru_cache`d factories, and module-level `settings` / `pyproject`
+singletons are imported wherever needed. This keeps config typed, validated, and in one
+place — no scattered `os.getenv` calls or config dicts.
 
 ```python
-# app/__init__.py  (or my_project/__init__.py for a library)
+# app/config.py  (or my_project/config.py)
+"""Configs for the My Project package."""
+
+import sys
+import tomllib
+from functools import lru_cache
+from typing import Any
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Settings class."""
+
+    # ---- Pydantic config ----
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # ---- App settings (overridable via env / .env) ----
+    debug: bool = False
+    host: str = "0.0.0.0"  # noqa: S104
+    port: int = 8000
+    log_level: str = "info"
+    mongo_uri: str = "mongodb://localhost:27017"
+    mongo_db_name: str = "my-project"
+    is_testing: bool = "pytest" in sys.modules
+    document_model_modules: list[str] = ["app.models"]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Settings factory."""
+    return Settings()
+
+
+@lru_cache
+def get_pyproject() -> dict[str, Any]:
+    """Read and cache the pyproject.toml file."""
+    with open("pyproject.toml", "rb") as f:
+        return tomllib.load(f)
+
+
+# ---- Globals ----
+settings = get_settings()
+pyproject = get_pyproject()
+```
+
+## Package __init__.py
+
+Pull the package title and version from `pyproject.toml` (via `config.pyproject`) so they
+have a single source of truth instead of a hardcoded `__version__`.
+
+```python
+# app/__init__.py  (or my_project/__init__.py)
 """My Project (application) package."""
 
-__version__ = "0.1.0"
+from .config import pyproject
+
+__title__ = pyproject["project"]["description"]
+__version__ = pyproject["project"]["version"]
 ```
 
 When a package re-exports a public API, build `__all__` from each object's `__name__`
