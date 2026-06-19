@@ -6,7 +6,7 @@ metadata:
   author: https://github.com/Jeffallan
   version: "1.1.0"
   domain: language
-  triggers: Python development, type hints, async Python, pytest, mypy, dataclasses, Python best practices, Pythonic code
+  triggers: Python development, type hints, async Python, pytest, mypy, dataclasses, Python best practices, Pythonic code, MongoDB, Beanie ODM
   role: specialist
   scope: implementation
   output-format: code
@@ -24,6 +24,7 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 - Setting up pytest test suites with fixtures and mocking
 - Creating Pythonic code with comprehensions, generators, context managers
 - Building packages with uv and a flat project layout
+- Integrating MongoDB via the Beanie ODM (async documents, connector, test fixtures)
 - Performance optimization and profiling
 
 ## Core Workflow
@@ -48,6 +49,7 @@ Load detailed guidance based on context:
 | Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools |
 | Testing | `references/testing.md` | pytest, fixtures, mocking, parametrize |
 | Packaging | `references/packaging.md` | uv, pyproject.toml, flat/app layout, distribution |
+| MongoDB / Beanie | `references/mongo-beanie.md` | MongoDB, Beanie ODM, async documents, test DB fixtures |
 
 ## Constraints
 
@@ -271,6 +273,6 @@ When implementing Python features, provide:
 
 ## Knowledge Reference
 
-Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, Fire, contextlib, collections.abc, Protocol
+Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, Fire, Beanie, MongoDB, mongomock-motor, contextlib, collections.abc, Protocol
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)
