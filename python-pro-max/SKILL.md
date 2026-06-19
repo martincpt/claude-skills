@@ -61,6 +61,7 @@ Load detailed guidance based on context:
 - Pydantic models for validation and data transfer; dataclasses (over manual `__init__`) for simple internal structures or when Pydantic is unavailable
 - Strict, self-describing types for any data with a known shape — a Pydantic model, dataclass, or `NamedTuple`; a plain `tuple[bool, str]` is fine for trivial returns
 - Context managers for resource handling
+- CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
 
 ### MUST NOT DO
 - Skip type annotations on public APIs
@@ -266,6 +267,6 @@ When implementing Python features, provide:
 
 ## Knowledge Reference
 
-Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, contextlib, collections.abc, Protocol
+Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, Fire, contextlib, collections.abc, Protocol
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)

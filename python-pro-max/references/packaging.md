@@ -38,7 +38,8 @@ my-project/                 # repository: slugified name
 ├── .python-version
 ├── uv.lock
 ├── app/                    # main package for a runnable app / API
-│   ├── __init__.py         # exposes `run` (entry point: app:run)
+│   ├── __init__.py         # package metadata (__version__)
+│   ├── cli.py              # Fire launcher (entry point: app.cli:run)
 │   ├── main.py
 │   ├── settings.py
 │   └── api/
@@ -87,9 +88,9 @@ docs = [
     "mkdocstrings-python>=1.16.0",
 ]
 
-# Runnable entry point: `uv run app` -> app.run()
+# Runnable entry point: `uv run app` -> app.cli.run()
 [project.scripts]
-app = "app:run"
+app = "app.cli:run"
 
 [tool.uv]
 package = true
@@ -254,38 +255,67 @@ uv python pin 3.11              # Writes .python-version
 ## Package __init__.py
 
 ```python
-# my_project/__init__.py  (library)
-"""my_project — a Python package."""
-
-from my_project.core import CoreClass, main_function
-from my_project.utils import helper_function
+# app/__init__.py  (or my_project/__init__.py for a library)
+"""My Project (application) package."""
 
 __version__ = "0.1.0"
-__all__ = ["CoreClass", "helper_function", "main_function"]
-```
-
-```python
-# app/__init__.py  (runnable application)
-"""my-project application package."""
-
-from app.cli import run
-
-__all__ = ["run"]
 ```
 
 ## CLI Entry Points
 
+Use the **Fire** package for CLIs. For anything beyond a single command, expose a
+**class-based launcher**: each public method becomes a subcommand and its parameters map to
+flags. Nested classes give command groups. Fire infers the interface from the class, so
+there's no parser boilerplate to maintain.
+
 ```python
-# app/cli.py — wired via [project.scripts] run = "app:run"  (`uv run run`)
+# app/cli.py — class-based Fire launcher; each method is a subcommand.
+# Wired via [project.scripts] app = "app.cli:run"  ->  `uv run app <command> [--flags]`
 import fire
 
+
+class Database:
+    """Database management commands (a nested command group)."""
+
+    def migrate(self, revision: str = "head") -> None:
+        """Apply migrations up to a revision."""
+        ...
+
+    def seed(self, *, force: bool = False) -> None:
+        """Populate the database with seed data."""
+        ...
+
+
+class CLI:
+    """my-project command-line interface."""
+
+    def __init__(self) -> None:
+        """Initialize the CLI instance."""
+        self.db = Database()  # exposes the `db` command group: `app db migrate`
+
+    def serve(self, host: str = "0.0.0.0", port: int = 8000) -> None:
+        """Start the application server."""
+        ...
+
+    def shell(self) -> None:
+        """Open an interactive shell with the app context loaded."""
+        ...
+
+
 def run() -> None:
-    """Application entry point."""
-    # e.g. fire.Fire(commands), or uvicorn.run("app.main:api")
-    fire.Fire({"serve": serve, "migrate": migrate})
+    """Entry point: dispatch subcommands through Fire."""
+    fire.Fire(CLI)
+
 
 if __name__ == "__main__":
     run()
+```
+
+```bash
+# Subcommands and flags are derived from the class:
+uv run app serve --port 9000
+uv run app db migrate --revision head
+uv run app db seed --force
 ```
 
 ## Type Stub Files (py.typed)
