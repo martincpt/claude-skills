@@ -68,40 +68,31 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Opt-in features: `uv sync --extra postgres`
-postgres = [
-    "asyncpg>=0.30.0",
-    "sqlalchemy>=2.0.0",
+# Opt-in features: `uv sync --extra beanie`
+beanie = [
+    "beanie>=2.0.0",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=1.7.0",
-    "pre-commit>=4.0.0",
-    "ruff>=0.1.6",
+    "pre-commit>=4.2.0",
+    "coverage>=7.7.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-mock>=3.14.0",
 ]
 docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.6.0",
     "mkdocstrings-python>=1.16.0",
 ]
-test = [
-    "coverage>=7.7.0",
-    "pytest>=8.3.0",
-    "pytest-asyncio>=0.25.0",
-    "pytest-mock>=3.14.0",
-]
 
-# Runnable entry point: `uv run run` -> app.run()
+# Runnable entry point: `uv run app` -> app.run()
 [project.scripts]
-run = "app:run"
+app = "app:run"
 
-# Application, not a distributable library: uv won't build/install a wheel
 [tool.uv]
-package = false
-
-[tool.setuptools]
-py-modules = ["app"]
+package = true
 
 [tool.black]
 line-length = 88
@@ -113,22 +104,44 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN002",  # Missing type annotation for *args
-    "ANN003",  # Missing type annotation for **kwargs
-    "ANN401",  # Dynamically typed expressions (typing.Any) disallowed
+    "ANN002",  # Missing type annotation for *{name}
+    "ANN003",  # Missing type annotation for **{name}
+    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {name}
     "D104",    # Missing docstring in public package
-    "D401",    # First docstring line should be in imperative mood
+    "D401",    # First line of docstring should be in imperative mood
+    "D402",    # First line should not be the function's signature
+    "D404",    # First word of the docstring should not be `This`
+    "D417",    # Missing argument descriptions in Docstring (If we use type annotations, we don't need to describe the arguments)
+    "DTZ005",  # The use of `datetime.datetime.now()` without tzinfo must be followed by `.replace(tzinfo=)` or `.astimezone()`
+    "DTZ007",  # The use of `datetime.datetime.strptime()` without %z must be followed by `.replace(tzinfo=)` or `.astimezone()`
     "FBT001",  # Boolean positional argument in function definition
-    "FBT002",  # Boolean default positional argument
+    "FBT002",  # Boolean default value in function definition
     "G004",    # Logging statement uses f-string
-    "PLR0913", # Too many arguments to function call
-    "TD002",   # Missing author in TODO
-    "TD003",   # Missing issue link for TODO
+    "PLR0913", # Too many arguments to function call (N > 5)
+    "PLW0603", # Using the global statement to update `X` is discouraged
+    "PTH123",  # `open()` should be replaced by `Path.open()`
+    "S101",    # Use of assert detected
+    "S603",    # `subprocess` call: check for execution of untrusted input
+    "S607",    # Starting a process with a partial executable path
+    "SLF001",  # Private member accessed
+    "TD002",   # Missing author in TODO; try: `# TODO(<author_name>): ...`
+    "TD003",   # Missing issue link on the line following this TODO
+    "TRY400",  # Use `logging.exception` instead of `logging.error`
+    # FastAPI dependencies:
+    "B008",    # Do not perform function call {name} in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+    # Better reading CRUD resources:
+    "RUF012",  # Mutable class attributes should be annotated with typing.ClassVar
+    # So we can use __all__ = [MyClass.__name__]
+    "PLE0604", # Invalid object in `__all__`, must contain only strings
+    # New lint rules since python 3.13
+    "PLC0415", # `import` should be at the top-level of a file
+    "FAST002", # FastAPI dependency without `Annotated`
+    "UP046",   # Generic class `PaginatedResults` uses `Generic` subclass instead of type parameters
+    "UP047",   # Generic function `inject_dependencies` should use type parameters
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]            # Re-exports
-"tests/*" = ["ARG001", "PLR2004", "S101"]  # Fixtures, magic values, asserts
+"tests/*" = ["ARG001", "PLR2004"]  # Fixtures, magic values
 
 [tool.ruff.lint.mccabe]
 max-complexity = 20
@@ -150,17 +163,22 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-source = ["app"]
+source = ["app"]. # or ["my_project"]
 command_line = "-m pytest"
 omit = ["tests/"]
 
 [tool.coverage.report]
 show_missing = true
 exclude_lines = [
-    "if TYPE_CHECKING:",
-    "\\.\\.\\.$",
-    "pass$",
-    "raise NotImplementedError",
+    'if *TYPE_CHECKING*:$',
+    'if t.TYPE_CHECKING:$',
+    '\.\.\.$',
+    'continue$',
+    'break$',
+    'pass$',
+    'message = *',
+    'raise *',
+    'raise$',
 ]
 
 [tool.coverage.xml]
@@ -180,7 +198,7 @@ build-backend = "hatchling.build"
 my-project = "my_project.cli:main"
 ```
 
-Then drop `[tool.uv] package = false` and `[tool.setuptools]` (the default `package = true`
+Then set `[tool.uv] package = true` (`package = true` 
 builds `my_project`), and point coverage at the module: `source = ["my_project"]`.
 
 ## UV Project Management
@@ -209,7 +227,7 @@ uv lock --upgrade               # Upgrade pins within constraints
 
 # Running
 uv run pytest                   # Run inside the project env (no activation needed)
-uv run run                      # Invoke the `run` script ([project.scripts])
+uv run app                      # Invoke the `app` script ([project.scripts])
 
 # Build / publish (libraries only)
 uv build                        # sdist + wheel into dist/
