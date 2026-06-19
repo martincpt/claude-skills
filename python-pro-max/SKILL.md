@@ -1,5 +1,5 @@
 ---
-name: python-pro
+name: python-pro-max
 description: Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff. Invoke for type hints, async/await patterns, dataclasses, dependency injection, logging configuration, and structured error handling.
 license: MIT
 metadata:
@@ -13,7 +13,7 @@ metadata:
   related-skills: fastapi-expert, devops-engineer
 ---
 
-# Python Pro
+# Python Pro Max
 
 Modern Python 3.11+ specialist focused on type-safe, async-first, production-ready code.
 
@@ -54,7 +54,7 @@ Load detailed guidance based on context:
 ### MUST DO
 - Type hints for all function signatures and class attributes
 - PEP 8 compliance with black formatting
-- Comprehensive docstrings (Google style)
+- Google-style docstrings — one line by default; full `Args`/`Returns`/`Raises` only on main components (see Docstring Style)
 - Test coverage exceeding 90% with pytest
 - Use `X | None` instead of `Optional[X]` (Python 3.10+)
 - Async/await for I/O-bound operations
@@ -69,6 +69,37 @@ Load detailed guidance based on context:
 - Use bare except clauses
 - Hardcode secrets or configuration
 - Use deprecated stdlib modules (use pathlib not os.path)
+
+## Docstring Style
+
+Google style, but lean. Let descriptive names and type hints carry the weight.
+
+- **Default to one line.** When the name is well understood and descriptive (which it should be), a single summary line is enough. The type hints already document the parameters and return type.
+- **Full `Args`/`Returns`/`Raises` only on main or most important components** — primary entry points, public APIs, and functions with non-obvious behavior, edge cases, or raised exceptions worth calling out.
+- **Document every method, including dunders** — but keep trivial dunders' docstrings *generic and maintenance-free* so they never go stale as the body changes. Name the class in `__init__` (`"""Initialize the AppConfig instance."""`, not the body-specific `"""Store the host and port."""`); use `"""Return the string representation."""` for `__repr__`, `"""Enter the async context."""` for `__aenter__`, and so on. Named functions and methods get an intent-describing one-liner, which is name-derived and stays stable anyway.
+
+```python
+# One line — the name and signature say the rest:
+def parse_config(content: str) -> dict[str, str]:
+    """Parse key-value pairs from raw config text."""
+    ...
+
+# Full form — reserved for important components with edge cases worth documenting:
+def read_config(path: Path) -> dict[str, str]:
+    """Read configuration from a file.
+
+    Args:
+        path: Path to the configuration file.
+
+    Returns:
+        Parsed key-value configuration entries.
+
+    Raises:
+        FileNotFoundError: If the config file does not exist.
+        ValueError: If a line cannot be parsed.
+    """
+    ...
+```
 
 ## Code Examples
 
@@ -105,12 +136,15 @@ from dataclasses import dataclass, field
 
 @dataclass
 class AppConfig:
+    """Application configuration with port-range validation."""
+
     host: str
     port: int
     debug: bool = False
     allowed_origins: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        """Validate fields after initialization."""
         if not (1 <= self.port <= 65535):
             raise ValueError(f"Invalid port: {self.port}")
 ```
@@ -135,12 +169,14 @@ from pathlib import Path
 
 @pytest.fixture
 def config_file(tmp_path: Path) -> Path:
+    """Write a minimal config file and return its path."""
     cfg = tmp_path / "config.txt"
     cfg.write_text("host=localhost\nport=8080\n")
     return cfg
 
 @pytest.mark.parametrize("port,valid", [(8080, True), (0, False), (99999, False)])
 def test_app_config_port_validation(port: int, valid: bool) -> None:
+    """Reject ports outside the valid 1-65535 range."""
     if valid:
         AppConfig(host="localhost", port=port)
     else:
@@ -176,4 +212,4 @@ When implementing Python features, provide:
 
 Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, Poetry, Pydantic, contextlib, collections.abc, Protocol
 
-[Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro/)
+[Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)

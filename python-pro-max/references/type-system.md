@@ -8,10 +8,12 @@ from collections.abc import Sequence, Mapping
 
 # Function signatures
 def process_user(name: str, age: int, active: bool = True) -> dict[str, Any]:
+    """Build a user record from individual fields."""
     return {"name": name, "age": age, "active": active}
 
 # Use | for unions (Python 3.10+)
 def find_user(user_id: int | str) -> dict[str, Any] | None:
+    """Look up a user by integer or string id."""
     if isinstance(user_id, int):
         return {"id": user_id}
     return None
@@ -38,17 +40,23 @@ V = TypeVar('V')
 
 # Generic function
 def first_element(items: Sequence[T]) -> T | None:
+    """Return the first element, or None if empty."""
     return items[0] if items else None
 
 # Generic class
 class Cache(Generic[K, V]):
+    """Simple in-memory key-value cache."""
+
     def __init__(self) -> None:
+        """Initialize the Cache instance."""
         self._data: dict[K, V] = {}
 
     def get(self, key: K) -> V | None:
+        """Return the cached value for a key, or None."""
         return self._data.get(key)
 
     def set(self, key: K, value: V) -> None:
+        """Store a value under a key."""
         self._data[key] = value
 
 # Usage
@@ -60,6 +68,7 @@ from numbers import Number
 NumT = TypeVar('NumT', bound=Number)
 
 def add_numbers(a: NumT, b: NumT) -> NumT:
+    """Add two numbers of the same type."""
     return a + b  # type: ignore[return-value]
 ```
 
@@ -70,6 +79,8 @@ from typing import Protocol, runtime_checkable
 
 # Define interface without inheritance
 class Drawable(Protocol):
+    """Anything that can be drawn and exposes a color."""
+
     def draw(self) -> str:
         ...
 
@@ -78,28 +89,37 @@ class Drawable(Protocol):
         ...
 
 class Circle:
+    """A drawable circle."""
+
     def __init__(self, radius: float, color: str) -> None:
+        """Initialize the Circle instance."""
         self.radius = radius
         self._color = color
 
     def draw(self) -> str:
+        """Return a description of the drawn circle."""
         return f"Drawing {self._color} circle"
 
     @property
     def color(self) -> str:
+        """The circle's color."""
         return self._color
 
 # Circle implements Drawable without inheriting
 def render(shape: Drawable) -> str:
+    """Render any drawable shape."""
     return shape.draw()
 
 # Runtime checkable protocol
 @runtime_checkable
 class Closeable(Protocol):
+    """Anything with a close() method."""
+
     def close(self) -> None:
         ...
 
 def cleanup(resource: Closeable) -> None:
+    """Close the resource if it is closeable."""
     if isinstance(resource, Closeable):
         resource.close()
 ```
@@ -113,6 +133,7 @@ from typing import Literal, TypeAlias, TypedDict, NotRequired, Self, overload
 Mode = Literal["read", "write", "append"]
 
 def open_file(path: str, mode: Mode) -> None:
+    """Open a file in the given mode."""
     ...
 
 # Type aliases for complex types
@@ -121,24 +142,32 @@ UserId: TypeAlias = int | str
 
 # TypedDict for structured dictionaries
 class UserDict(TypedDict):
+    """Structured shape for a user payload."""
+
     id: int
     name: str
     email: str
     age: NotRequired[int]  # Optional field
 
 def create_user(data: UserDict) -> None:
+    """Create a user from a typed dict."""
     print(data["name"])  # Type-safe access
 
 # Self type for method chaining
 class Builder:
+    """Fluent builder for an integer value."""
+
     def __init__(self) -> None:
+        """Initialize the Builder instance."""
         self._value = 0
 
     def add(self, n: int) -> Self:
+        """Add to the running value and return self."""
         self._value += n
         return self
 
     def multiply(self, n: int) -> Self:
+        """Multiply the running value and return self."""
         self._value *= n
         return self
 
@@ -150,6 +179,7 @@ def process(data: str) -> str: ...
 def process(data: int) -> int: ...
 
 def process(data: str | int) -> str | int:
+    """Transform a string or int payload."""
     if isinstance(data, str):
         return data.upper()
     return data * 2
@@ -163,6 +193,7 @@ from typing import ParamSpec, Concatenate
 
 # Basic callable
 def apply(func: Callable[[int, int], int], a: int, b: int) -> int:
+    """Apply a binary function to two integers."""
     return func(a, b)
 
 # ParamSpec for preserving signatures
@@ -170,7 +201,10 @@ P = ParamSpec('P')
 R = TypeVar('R')
 
 def logging_decorator(func: Callable[P, R]) -> Callable[P, R]:
+    """Log each call to the wrapped function."""
+
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Log the call, then invoke the wrapped function."""
         print(f"Calling {func.__name__}")
         return func(*args, **kwargs)
     return wrapper
@@ -179,7 +213,10 @@ def logging_decorator(func: Callable[P, R]) -> Callable[P, R]:
 def with_connection(
     func: Callable[Concatenate[Connection, P], R]
 ) -> Callable[P, R]:
+    """Inject a connection as the first argument of the wrapped function."""
+
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Acquire a connection, then invoke the wrapped function."""
         conn = get_connection()
         return func(conn, *args, **kwargs)
     return wrapper
@@ -187,6 +224,7 @@ def with_connection(
 # Usage
 @with_connection
 def query_user(conn: Connection, user_id: int) -> User:
+    """Fetch a user row over the injected connection."""
     return conn.execute(f"SELECT * FROM users WHERE id = {user_id}")
 ```
 
@@ -225,21 +263,27 @@ from dataclasses import dataclass
 
 @dataclass
 class Success(Generic[T]):
+    """Successful result carrying a value."""
+
     value: T
 
 @dataclass
 class Error:
+    """Failed result carrying an error message."""
+
     message: str
 
 Result = Success[T] | Error
 
 def divide(a: int, b: int) -> Result[float]:
+    """Divide a by b, returning a Result instead of raising."""
     if b == 0:
         return Error("Division by zero")
     return Success(a / b)
 
 # Option/Maybe type
 def safe_get(items: Sequence[T], index: int) -> T | None:
+    """Return the item at index, or None if out of range."""
     try:
         return items[index]
     except IndexError:
@@ -251,6 +295,7 @@ from typing import Final
 MISSING: Final = object()
 
 def get_value(key: str, default: T | type[MISSING] = MISSING) -> T:
+    """Return the default, or raise if no default was supplied."""
     if default is MISSING:
         raise KeyError(key)
     return default  # type: ignore[return-value]
@@ -262,6 +307,7 @@ def get_value(key: str, default: T | type[MISSING] = MISSING) -> T:
 from typing import assert_type, assert_never
 
 def process_value(value: int | str | None) -> str:
+    """Render an optional int-or-str value as a string."""
     # Type guards
     if value is None:
         return "null"
@@ -275,6 +321,7 @@ def process_value(value: int | str | None) -> str:
 
 # Exhaustiveness checking
 def handle_mode(mode: Literal["read", "write"]) -> str:
+    """Dispatch on a read/write mode, exhaustively."""
     if mode == "read":
         return "Reading"
     elif mode == "write":

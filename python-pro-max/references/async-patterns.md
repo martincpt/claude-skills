@@ -8,11 +8,13 @@ from collections.abc import Coroutine
 
 # Basic async function
 async def fetch_data(url: str) -> dict[str, str]:
+    """Fetch data for a URL (simulated I/O)."""
     await asyncio.sleep(1)  # Simulate I/O
     return {"url": url, "status": "ok"}
 
 # Running async code
 async def main() -> None:
+    """Run the example fetch."""
     result = await fetch_data("https://api.example.com")
     print(result)
 
@@ -21,11 +23,13 @@ if __name__ == "__main__":
 
 # Multiple concurrent operations
 async def fetch_all(urls: list[str]) -> list[dict[str, str]]:
+    """Fetch every URL concurrently."""
     tasks = [fetch_data(url) for url in urls]
     return await asyncio.gather(*tasks)
 
 # Error handling with gather
 async def safe_fetch_all(urls: list[str]) -> list[dict[str, str] | None]:
+    """Fetch every URL concurrently, returning None for failures."""
     tasks = [fetch_data(url) for url in urls]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return [r if not isinstance(r, Exception) else None for r in results]
@@ -38,6 +42,7 @@ from asyncio import TaskGroup
 
 # Task groups for structured concurrency
 async def process_batch(items: list[int]) -> list[int]:
+    """Process a batch of items as a structured task group."""
     results: list[int] = []
 
     async with TaskGroup() as tg:
@@ -48,6 +53,7 @@ async def process_batch(items: list[int]) -> list[int]:
 
 # Error handling with TaskGroup
 async def robust_processing(items: list[str]) -> tuple[list[str], list[Exception]]:
+    """Process items, collecting results and errors separately."""
     results: list[str] = []
     errors: list[Exception] = []
 
@@ -69,11 +75,15 @@ from typing import Self
 from collections.abc import AsyncIterator
 
 class AsyncDatabaseConnection:
+    """Async context manager around a database connection."""
+
     def __init__(self, url: str) -> None:
+        """Initialize the AsyncDatabaseConnection instance."""
         self.url = url
         self._conn: Connection | None = None
 
     async def __aenter__(self) -> Self:
+        """Enter the async context."""
         self._conn = await connect(self.url)
         return self
 
@@ -83,16 +93,19 @@ class AsyncDatabaseConnection:
         exc_val: BaseException | None,
         exc_tb: Any,
     ) -> None:
+        """Exit the async context."""
         if self._conn:
             await self._conn.close()
 
     async def query(self, sql: str) -> list[dict[str, Any]]:
+        """Run a SQL query over the open connection."""
         if not self._conn:
             raise RuntimeError("Not connected")
         return await self._conn.execute(sql)
 
 # Usage
 async def get_users() -> list[dict[str, Any]]:
+    """Fetch all users via a managed connection."""
     async with AsyncDatabaseConnection("postgresql://...") as db:
         return await db.query("SELECT * FROM users")
 
@@ -101,6 +114,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def get_db_session() -> AsyncIterator[Session]:
+    """Yield a session, committing on success and rolling back on error."""
     session = await create_session()
     try:
         yield session
@@ -119,12 +133,14 @@ from collections.abc import AsyncIterator
 
 # Async generator for streaming data
 async def read_lines(filepath: str) -> AsyncIterator[str]:
+    """Yield stripped lines from a file."""
     async with aiofiles.open(filepath) as f:
         async for line in f:
             yield line.strip()
 
 # Process stream
 async def process_file(filepath: str) -> int:
+    """Process each line of a file and return the count."""
     count = 0
     async for line in read_lines(filepath):
         await process_line(line)
@@ -133,6 +149,7 @@ async def process_file(filepath: str) -> int:
 
 # Async generator with cleanup
 async def fetch_paginated(url: str) -> AsyncIterator[dict[str, Any]]:
+    """Yield pages from a paginated endpoint until exhausted."""
     page = 1
     session = await create_session()
     try:
@@ -151,10 +168,12 @@ async def fetch_paginated(url: str) -> AsyncIterator[dict[str, Any]]:
 ```python
 # Async list comprehension
 async def fetch_all_users(user_ids: list[int]) -> list[User]:
+    """Collect users from an async source into a list."""
     return [user async for user in fetch_users(user_ids)]
 
 # Async dict comprehension
 async def build_user_map(user_ids: list[int]) -> dict[int, User]:
+    """Build an id-to-user map from an async source."""
     return {
         user.id: user
         async for user in fetch_users(user_ids)
@@ -162,6 +181,7 @@ async def build_user_map(user_ids: list[int]) -> dict[int, User]:
 
 # Conditional async comprehension
 async def get_active_users(user_ids: list[int]) -> list[User]:
+    """Collect only the active users from an async source."""
     return [
         user
         async for user in fetch_users(user_ids)
@@ -176,11 +196,15 @@ import asyncio
 
 # Lock for critical sections
 class SharedResource:
+    """Resource guarded by a lock for safe concurrent updates."""
+
     def __init__(self) -> None:
+        """Initialize the SharedResource instance."""
         self._lock = asyncio.Lock()
         self._data: dict[str, Any] = {}
 
     async def update(self, key: str, value: Any) -> None:
+        """Atomically add a value under a key."""
         async with self._lock:
             # Critical section
             current = self._data.get(key, 0)
@@ -189,20 +213,28 @@ class SharedResource:
 
 # Semaphore for rate limiting
 class RateLimiter:
+    """Bound concurrency with a semaphore."""
+
     def __init__(self, max_concurrent: int) -> None:
+        """Initialize the RateLimiter instance."""
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
     async def process(self, item: str) -> str:
+        """Process an item within the concurrency limit."""
         async with self._semaphore:
             return await expensive_operation(item)
 
 # Event for coordination
 class AsyncWorker:
+    """Worker coordinated by ready/shutdown events."""
+
     def __init__(self) -> None:
+        """Initialize the AsyncWorker instance."""
         self._ready = asyncio.Event()
         self._shutdown = asyncio.Event()
 
     async def start(self) -> None:
+        """Initialize, signal readiness, then wait for shutdown."""
         # Initialization
         await self._initialize()
         self._ready.set()
@@ -211,9 +243,11 @@ class AsyncWorker:
         await self._shutdown.wait()
 
     async def wait_ready(self) -> None:
+        """Block until the worker is ready."""
         await self._ready.wait()
 
     def stop(self) -> None:
+        """Signal the worker to shut down."""
         self._shutdown.set()
 ```
 
@@ -224,11 +258,13 @@ from asyncio import Queue
 
 # Producer-consumer pattern
 async def producer(queue: Queue[int], n: int) -> None:
+    """Put n items onto the queue."""
     for i in range(n):
         await queue.put(i)
         await asyncio.sleep(0.1)
 
 async def consumer(queue: Queue[int], name: str) -> None:
+    """Consume and process items from the queue until cancelled."""
     while True:
         item = await queue.get()
         try:
@@ -237,6 +273,7 @@ async def consumer(queue: Queue[int], name: str) -> None:
             queue.task_done()
 
 async def run_pipeline(num_items: int, num_workers: int) -> None:
+    """Run a producer and pool of consumers to completion."""
     queue: Queue[int] = Queue(maxsize=10)
 
     # Start producer and consumers
@@ -254,6 +291,7 @@ async def run_pipeline(num_items: int, num_workers: int) -> None:
 ```python
 # Timeout for single operation
 async def fetch_with_timeout(url: str, timeout: float) -> dict[str, Any]:
+    """Fetch a URL, returning an error dict on timeout."""
     try:
         async with asyncio.timeout(timeout):
             return await fetch_data(url)
@@ -265,6 +303,7 @@ async def fetch_all_with_timeout(
     urls: list[str],
     timeout: float
 ) -> list[dict[str, Any] | None]:
+    """Fetch all URLs, returning Nones if the batch times out."""
     try:
         async with asyncio.timeout(timeout):
             return await fetch_all(urls)
@@ -278,16 +317,21 @@ async def fetch_all_with_timeout(
 from asyncio import create_task, Task
 
 class BackgroundTaskManager:
+    """Track background tasks for coordinated shutdown."""
+
     def __init__(self) -> None:
+        """Initialize the BackgroundTaskManager instance."""
         self._tasks: set[Task[None]] = set()
 
     def create_task(self, coro: Coroutine[None, None, None]) -> Task[None]:
+        """Schedule a coroutine and track its task."""
         task = create_task(coro)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task
 
     async def shutdown(self) -> None:
+        """Cancel and await all tracked tasks."""
         # Cancel all background tasks
         for task in self._tasks:
             task.cancel()
@@ -303,15 +347,20 @@ manager.create_task(background_job())
 
 ```python
 class AsyncRange:
+    """Async iterator over a range of integers."""
+
     def __init__(self, start: int, end: int) -> None:
+        """Initialize the AsyncRange instance."""
         self.start = start
         self.end = end
         self.current = start
 
     def __aiter__(self) -> Self:
+        """Return the async iterator."""
         return self
 
     async def __anext__(self) -> int:
+        """Return the next item, or stop the iteration."""
         if self.current >= self.end:
             raise StopAsyncIteration
         await asyncio.sleep(0.1)  # Simulate async work
@@ -332,11 +381,13 @@ import functools
 
 # Run sync code in executor
 async def run_in_executor(func: Callable[..., T], *args: Any) -> T:
+    """Run a blocking function in the default executor."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, func, *args)
 
 # Run async code from sync context
 def sync_wrapper(coro: Coroutine[None, None, T]) -> T:
+    """Run a coroutine to completion from synchronous code."""
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -345,8 +396,11 @@ def sync_wrapper(coro: Coroutine[None, None, T]) -> T:
 
 # Async wrapper for sync function
 def to_async(func: Callable[..., T]) -> Callable[..., Coroutine[None, None, T]]:
+    """Wrap a sync function so it runs in an executor."""
+
     @functools.wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> T:
+        """Run the wrapped function in an executor."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,

@@ -12,6 +12,7 @@ data_dir = Path.home() / "data"
 
 # File operations
 def read_config(config_path: Path) -> dict[str, str]:
+    """Read and parse a config file."""
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
 
@@ -25,10 +26,11 @@ def read_config(config_path: Path) -> dict[str, str]:
 
 # Path traversal
 def find_python_files(directory: Path) -> list[Path]:
-    # Recursive glob
+    """Recursively find all Python files under a directory."""
     return list(directory.rglob("*.py"))
 
 def get_file_info(path: Path) -> dict[str, Any]:
+    """Return basic stat info for a path."""
     stat = path.stat()
     return {
         "size": stat.st_size,
@@ -41,6 +43,7 @@ def get_file_info(path: Path) -> dict[str, Any]:
 
 # Creating directories
 def ensure_dir(path: Path) -> None:
+    """Create a directory and its parents if missing."""
     path.mkdir(parents=True, exist_ok=True)
 
 # Temporary files
@@ -48,6 +51,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 
 def process_with_temp() -> None:
+    """Write to a file inside a temporary directory."""
     with TemporaryDirectory() as tmpdir:
         temp_path = Path(tmpdir) / "output.txt"
         temp_path.write_text("data")
@@ -62,6 +66,8 @@ from typing import ClassVar
 # Basic dataclass
 @dataclass
 class User:
+    """A user record."""
+
     id: int
     name: str
     email: str
@@ -70,21 +76,27 @@ class User:
 # Post-init processing
 @dataclass
 class Product:
+    """A product with an optional discount."""
+
     name: str
     price: float
     discount: float = 0.0
 
     def __post_init__(self) -> None:
+        """Validate fields after initialization."""
         if self.discount > 1.0:
             raise ValueError("Discount must be <= 1.0")
 
     @property
     def final_price(self) -> float:
+        """Price after applying the discount."""
         return self.price * (1 - self.discount)
 
 # Field with factory
 @dataclass
 class ShoppingCart:
+    """A user's shopping cart."""
+
     user_id: int
     items: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -92,15 +104,20 @@ class ShoppingCart:
 # Frozen dataclass (immutable)
 @dataclass(frozen=True)
 class Point:
+    """Immutable 2D point."""
+
     x: float
     y: float
 
     def distance(self, other: "Point") -> float:
+        """Euclidean distance to another point."""
         return ((self.x - other.x)**2 + (self.y - other.y)**2)**0.5
 
 # Class variables
 @dataclass
 class Config:
+    """Service configuration with class-level constants."""
+
     API_VERSION: ClassVar[str] = "v1"
     BASE_URL: ClassVar[str] = "https://api.example.com"
 
@@ -110,6 +127,8 @@ class Config:
 # Ordered dataclass for comparison
 @dataclass(order=True)
 class Priority:
+    """Comparable priority ordered by level."""
+
     level: int
     name: str = field(compare=False)
 
@@ -130,18 +149,23 @@ from functools import (
 # Caching
 @cache  # Unlimited cache (Python 3.9+)
 def fibonacci(n: int) -> int:
+    """Return the nth Fibonacci number."""
     if n < 2:
         return n
     return fibonacci(n - 1) + fibonacci(n - 2)
 
 @lru_cache(maxsize=128)  # LRU cache with size limit
 def fetch_user(user_id: int) -> dict[str, Any]:
+    """Fetch a user record by id (cached)."""
     # Expensive database call
     return {"id": user_id, "name": "User"}
 
 # Cached property
 class DataProcessor:
+    """Compute statistics over a list of numbers."""
+
     def __init__(self, data: list[int]) -> None:
+        """Initialize the DataProcessor instance."""
         self._data = data
 
     @cached_property
@@ -158,8 +182,11 @@ print(double(5))  # 10
 
 # Decorator preservation
 def timing_decorator(func: Callable[P, R]) -> Callable[P, R]:
+    """Print how long the wrapped function takes."""
+
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        """Time the call to the wrapped function."""
         start = time.time()
         result = func(*args, **kwargs)
         print(f"{func.__name__} took {time.time() - start:.2f}s")
@@ -175,18 +202,22 @@ product = reduce(mul, [1, 2, 3, 4], 1)  # 24
 # Single dispatch for polymorphism
 @singledispatch
 def process(arg: Any) -> str:
+    """Process a value based on its runtime type."""
     return f"Unknown type: {type(arg)}"
 
 @process.register
 def _(arg: int) -> str:
+    """Handle integer values."""
     return f"Integer: {arg * 2}"
 
 @process.register
 def _(arg: str) -> str:
+    """Handle string values."""
     return f"String: {arg.upper()}"
 
 @process.register(list)
 def _(arg: list[Any]) -> str:
+    """Handle list values."""
     return f"List with {len(arg)} items"
 ```
 
@@ -296,6 +327,7 @@ from contextlib import contextmanager, suppress, ExitStack
 # Custom context manager
 @contextmanager
 def managed_resource(resource_id: str) -> Iterator[Resource]:
+    """Yield a resource and release it on exit."""
     resource = acquire_resource(resource_id)
     try:
         yield resource
@@ -308,6 +340,7 @@ with suppress(FileNotFoundError):
 
 # ExitStack for dynamic context managers
 def process_files(filenames: list[str]) -> None:
+    """Open and process several files, auto-closing each."""
     with ExitStack() as stack:
         files = [stack.enter_context(open(fn)) for fn in filenames]
         # All files auto-closed on exit
@@ -322,24 +355,32 @@ from enum import Enum, auto, IntEnum, Flag
 
 # Basic enum
 class Status(Enum):
+    """Approval status values."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
 
 # Auto values
 class Color(Enum):
+    """Primary colors."""
+
     RED = auto()
     GREEN = auto()
     BLUE = auto()
 
 # IntEnum for numeric values
 class Priority(IntEnum):
+    """Numeric priority levels."""
+
     LOW = 1
     MEDIUM = 2
     HIGH = 3
 
 # Flag for bit flags
 class Permission(Flag):
+    """Bitwise permission flags."""
+
     READ = auto()
     WRITE = auto()
     EXECUTE = auto()
@@ -369,6 +410,7 @@ logger = logging.getLogger(__name__)
 
 # Structured logging
 def process_user(user_id: int) -> None:
+    """Process a user, logging progress and failures."""
     logger.info("Processing user", extra={"user_id": user_id})
     try:
         # Process...

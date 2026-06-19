@@ -357,6 +357,7 @@ import tomli
 from pathlib import Path
 
 def get_version() -> str:
+    """Read the project version from pyproject.toml."""
     pyproject = Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject, "rb") as f:
         data = tomli.load(f)
