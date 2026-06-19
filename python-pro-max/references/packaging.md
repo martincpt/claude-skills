@@ -413,43 +413,48 @@ dependencies = ["pydantic>=2.10", "httpx>=0.27,<1.0"]
 
 ## CI/CD Integration
 
-```yaml
-# .github/workflows/test.yml
-name: Tests
+CI runs **pre-commit** across the Python matrix — the hooks already cover lint (ruff),
+format (black), types (mypy), and tests (the local pytest hook), so the workflow stays a
+single source of truth with the local checks. Install with `uv`, cache the hook
+environments, and run them with `--show-diff-on-failure`.
 
-on: [push, pull_request]
+```yaml
+# .github/workflows/pre-commit.yml
+name: pre-commit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 jobs:
-  test:
+  pre-commit:
     runs-on: ubuntu-latest
+
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.13"]   # track requires-python (add "3.12" etc. to widen)
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: uv sync --all-groups
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
 
-      - name: Lint
-        run: |
-          uv run ruff check app tests
-          uv run black --check app tests
+      - name: Cache pre-commit hooks
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ matrix.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Type check
-        run: uv run mypy app
-
-      - name: Test
-        run: uv run pytest --cov --cov-report=xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 ```
 
 ## Pre-commit Hooks
