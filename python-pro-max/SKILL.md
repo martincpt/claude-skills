@@ -62,6 +62,8 @@ Load detailed guidance based on context:
 - Strict, self-describing types for any data with a known shape — a Pydantic model, dataclass, or `NamedTuple`; a plain `tuple[bool, str]` is fine for trivial returns
 - Context managers for resource handling
 - CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
+- Error messages on their own line — assign `message = "..."`, then `raise SomeError(message)`; never a string/f-string literal inside the `raise` call (ruff EM101/EM102)
+- String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
 
 ### MUST NOT DO
 - Skip type annotations on public APIs
@@ -198,7 +200,8 @@ def read_config(path: Path) -> AppConfig:
     for line in path.read_text(encoding="utf-8").splitlines():
         key, sep, value = line.partition("=")
         if not sep:
-            raise ValueError(f"Invalid config line: {line!r}")
+            message = f"Invalid config line: {line!r}"
+            raise ValueError(message)
         values[key.strip()] = value.strip()
 
     # ...but hand back a validated model, never the raw dict.

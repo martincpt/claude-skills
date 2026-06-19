@@ -15,7 +15,8 @@ data_dir = Path.home() / "data"
 def read_config(config_path: Path) -> AppConfig:
     """Read a config file and parse it into a validated model."""
     if not config_path.exists():
-        raise FileNotFoundError(f"Config not found: {config_path}")
+        message = f"Config not found: {config_path}"
+        raise FileNotFoundError(message)
 
     # Read text (use config_path.read_bytes() for binary files)
     content = config_path.read_text(encoding="utf-8")
@@ -97,7 +98,8 @@ class Product:
     def __post_init__(self) -> None:
         """Validate fields after initialization."""
         if self.discount > 1.0:
-            raise ValueError("Discount must be <= 1.0")
+            message = "Discount must be <= 1.0"
+            raise ValueError(message)
 
     @property
     def final_price(self) -> float:
@@ -365,40 +367,40 @@ def process_files(filenames: list[str]) -> None:
 ```python
 from enum import Enum, auto, IntEnum, Flag
 
-# Basic enum
-class Status(Enum):
+# String-based enum — subclass (str, Enum) so members compare/serialize as str
+class Status(str, Enum):
     """Approval status values."""
 
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 # Auto values
 class Color(Enum):
     """Primary colors."""
 
-    RED = auto()
-    GREEN = auto()
-    BLUE = auto()
+    red = auto()
+    green = auto()
+    blue = auto()
 
 # IntEnum for numeric values
 class Priority(IntEnum):
     """Numeric priority levels."""
 
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
+    low = 1
+    medium = 2
+    high = 3
 
 # Flag for bit flags
 class Permission(Flag):
     """Bitwise permission flags."""
 
-    READ = auto()
-    WRITE = auto()
-    EXECUTE = auto()
+    read = auto()
+    write = auto()
+    execute = auto()
 
-user_perms = Permission.READ | Permission.WRITE
-if Permission.READ in user_perms:
+user_perms = Permission.read | Permission.write
+if Permission.read in user_perms:
     print("Can read")
 ```
 

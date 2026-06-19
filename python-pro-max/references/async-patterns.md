@@ -108,7 +108,8 @@ class AsyncDatabaseConnection:
     async def query(self, sql: str) -> list[dict[str, Any]]:
         """Run a SQL query, returning raw rows (a generic, schema-agnostic handler)."""
         if not self._conn:
-            raise RuntimeError("Not connected")
+            message = "Not connected"
+            raise RuntimeError(message)
         return await self._conn.execute(sql)
 
 # Usage — query() returns raw rows; the util parses them into model instances
