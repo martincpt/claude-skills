@@ -399,26 +399,54 @@ jobs:
 
 ## Pre-commit Hooks
 
+Built from the team's standard config — the pre-commit-hooks hygiene suite, then black,
+ruff (`--fix`), mypy (with stub install), and a local pytest gate. `black` and `ruff` both
+run, so the differing line lengths are intentional: black formats at 88, ruff only flags
+lines over 120.
+
 ```yaml
 # .pre-commit-config.yaml
+default_language_version:
+  python: python3
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-      - id: ruff-format
-
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-docstring-first
+      - id: check-yaml
+      - id: debug-statements
+      - id: check-ast
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 26.3.1
     hooks:
       - id: black
-
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.15.12"
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+        fail_fast: true
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: "v2.1.0"
     hooks:
       - id: mypy
-        additional_dependencies: [pydantic]
+        args: ["--install-types", "--non-interactive"]
+        additional_dependencies:
+          - pydantic
+          - types-setuptools
+          # add the stub packages your code imports (e.g. types-requests)
+        fail_fast: true
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        stages: [pre-commit]
+        language: system
+        entry: pytest -v --showlocals --disable-warnings
+        types: [python]
+        pass_filenames: false
 ```
 
 ```bash
