@@ -2,102 +2,136 @@
 
 ## Project Structure
 
+Conventions:
+
+- **Flat layout — no `src/` container.** The package sits at the repository root.
+- **Repository name is slugified** (`my-project`); the **main module is the snake_case** form (`my_project`).
+- **For an API or runnable application, use the app layout**: the main package is simply **`app`** (rather than the snake_cased repo name).
+- **`uv` manages the project**; commit `uv.lock` and pin the interpreter with `.python-version`.
+
+### Library / package (flat layout)
+
 ```
-myproject/
-├── pyproject.toml          # Project metadata and dependencies
-├── README.md               # Project description
-├── .gitignore             # Git ignore patterns
-├── .python-version        # Python version for pyenv
-├── src/
-│   └── myproject/
-│       ├── __init__.py    # Package initialization
-│       ├── py.typed       # PEP 561 type marker
-│       ├── core.py        # Core functionality
-│       └── utils.py       # Utilities
-├── tests/
+my-project/                 # repository: slugified name
+├── pyproject.toml
+├── README.md
+├── .gitignore
+├── .python-version         # pinned interpreter (uv python pin)
+├── uv.lock                 # uv lockfile (committed)
+├── my_project/             # main module: snake_case of the repo name
 │   ├── __init__.py
-│   ├── conftest.py        # Pytest configuration
-│   └── test_core.py       # Tests
-└── docs/
-    └── index.md           # Documentation
+│   ├── py.typed            # PEP 561 type marker
+│   ├── core.py
+│   └── utils.py
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    └── test_core.py
 ```
 
-## Pyproject.toml Configuration
+### API / runnable application (app layout)
+
+```
+my-project/                 # repository: slugified name
+├── pyproject.toml
+├── README.md
+├── .python-version
+├── uv.lock
+├── app/                    # main package for a runnable app / API
+│   ├── __init__.py         # exposes `run` (entry point: app:run)
+│   ├── main.py
+│   ├── settings.py
+│   └── api/
+└── tests/
+    ├── conftest.py
+    └── test_app.py
+```
+
+## pyproject.toml Configuration
+
+Built from the team's standard template — `uv`, flat **app** layout, `select = ["ALL"]`,
+`[dependency-groups]`, and `[tool.uv] package = false` (an application is deployed, not
+distributed as a wheel).
 
 ```toml
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "myproject"
+name = "my-project"
 version = "0.1.0"
-description = "A Python project"
+description = "A runnable Python application"
+authors = [{ name = "Your Name", email = "you@example.com" }]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
-authors = [
-    {name = "Your Name", email = "you@example.com"}
-]
-keywords = ["python", "package"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Typing :: Typed",
-]
-
 dependencies = [
-    "requests>=2.31.0",
-    "pydantic>=2.5.0",
+    "fire>=0.7.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.8.0",
 ]
 
 [project.optional-dependencies]
+# Opt-in features: `uv sync --extra postgres`
+postgres = [
+    "asyncpg>=0.30.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[dependency-groups]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
     "mypy>=1.7.0",
-    "black>=23.11.0",
+    "pre-commit>=4.0.0",
     "ruff>=0.1.6",
 ]
 docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.4.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.6.0",
+    "mkdocstrings-python>=1.16.0",
+]
+test = [
+    "coverage>=7.7.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "pytest-mock>=3.14.0",
 ]
 
+# Runnable entry point: `uv run run` -> app.run()
 [project.scripts]
-myproject = "myproject.cli:main"
+run = "app:run"
 
-[project.urls]
-Homepage = "https://github.com/username/myproject"
-Documentation = "https://myproject.readthedocs.io"
-Repository = "https://github.com/username/myproject"
-Changelog = "https://github.com/username/myproject/blob/main/CHANGELOG.md"
+# Application, not a distributable library: uv won't build/install a wheel
+[tool.uv]
+package = false
 
-# Tool configurations
+[tool.setuptools]
+py-modules = ["app"]
+
 [tool.black]
-line-length = 100
-target-version = ["py311"]
-include = '\.pyi?$'
+line-length = 88
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py311"
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-]
-ignore = []
 
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]  # Ignore unused imports in __init__.py
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN002",  # Missing type annotation for *args
+    "ANN003",  # Missing type annotation for **kwargs
+    "ANN401",  # Dynamically typed expressions (typing.Any) disallowed
+    "D104",    # Missing docstring in public package
+    "D401",    # First docstring line should be in imperative mood
+    "FBT001",  # Boolean positional argument in function definition
+    "FBT002",  # Boolean default positional argument
+    "G004",    # Logging statement uses f-string
+    "PLR0913", # Too many arguments to function call
+    "TD002",   # Missing author in TODO
+    "TD003",   # Missing issue link for TODO
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]            # Re-exports
+"tests/*" = ["ARG001", "PLR2004", "S101"]  # Fixtures, magic values, asserts
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
 
 [tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = true
@@ -106,140 +140,143 @@ mark-parentheses = true
 [tool.mypy]
 python_version = "3.11"
 strict = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = "third_party.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-minversion = "7.0"
-addopts = [
-    "-ra",
-    "--strict-markers",
-    "--strict-config",
-    "--cov=myproject",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-]
 testpaths = ["tests"]
-pythonpath = ["src"]
+addopts = "-s -v --durations=0 --disable-warnings --tb short"
+cache_dir = ".cache/pytest_cache"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src"]
 branch = true
+source = ["app"]
+command_line = "-m pytest"
+omit = ["tests/"]
 
 [tool.coverage.report]
+show_missing = true
 exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+    "\\.\\.\\.$",
+    "pass$",
+    "raise NotImplementedError",
 ]
+
+[tool.coverage.xml]
+output = "coverage.xml"
 ```
 
-## Poetry Project Management
+### Library variant
+
+For a distributable **library** (flat layout, module `my_project`) instead of an app, build a wheel:
 
 ```toml
-# pyproject.toml for Poetry
-[tool.poetry]
-name = "myproject"
-version = "0.1.0"
-description = "A Python project"
-authors = ["Your Name <you@example.com>"]
-readme = "README.md"
-license = "MIT"
-packages = [{include = "myproject", from = "src"}]
-
-[tool.poetry.dependencies]
-python = "^3.11"
-requests = "^2.31.0"
-pydantic = "^2.5.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-cov = "^4.1.0"
-mypy = "^1.7.0"
-black = "^23.11.0"
-ruff = "^0.1.6"
-
-[tool.poetry.scripts]
-myproject = "myproject.cli:main"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+my-project = "my_project.cli:main"
 ```
 
+Then drop `[tool.uv] package = false` and `[tool.setuptools]` (the default `package = true`
+builds `my_project`), and point coverage at the module: `source = ["my_project"]`.
+
+## UV Project Management
+
+`uv` replaces poetry/pip-tools: dependency resolution, locking, virtualenvs, and Python
+version management in one tool.
+
 ```bash
-# Poetry commands
-poetry init                    # Initialize new project
-poetry add requests            # Add dependency
-poetry add --group dev pytest  # Add dev dependency
-poetry install                 # Install dependencies
-poetry update                  # Update dependencies
-poetry shell                   # Activate virtual environment
-poetry run pytest              # Run command in venv
-poetry build                   # Build package
-poetry publish                 # Publish to PyPI
-poetry export -f requirements.txt --output requirements.txt
+# Scaffold
+uv init my-project              # New library (flat layout)
+uv init --app my-project        # New runnable application (app layout)
+
+# Dependencies
+uv add pydantic                 # Add a runtime dependency to [project.dependencies]
+uv add --dev mypy ruff          # Add to the dev group ([dependency-groups].dev)
+uv add --group test pytest      # Add to a named group
+uv add --optional postgres asyncpg  # Add to an optional-dependencies extra
+uv remove requests              # Remove a dependency
+
+# Environment & locking
+uv sync                         # Create/sync .venv from uv.lock (default groups)
+uv sync --all-extras --all-groups   # Everything
+uv sync --no-dev                # Production install (no dev group)
+uv lock                         # Refresh uv.lock
+uv lock --upgrade               # Upgrade pins within constraints
+
+# Running
+uv run pytest                   # Run inside the project env (no activation needed)
+uv run run                      # Invoke the `run` script ([project.scripts])
+
+# Build / publish (libraries only)
+uv build                        # sdist + wheel into dist/
+uv publish                      # Publish to PyPI (UV_PUBLISH_TOKEN)
+
+# Python versions (replaces pyenv)
+uv python install 3.11
+uv python pin 3.11              # Writes .python-version
 ```
 
 ## Virtual Environments
 
 ```bash
-# Using venv (built-in)
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.venv\Scripts\activate     # Windows
+# uv creates and manages .venv automatically on `uv sync` / `uv run`.
+uv venv                         # Explicitly create .venv (honours .python-version)
+source .venv/bin/activate       # Optional — `uv run <cmd>` needs no activation
+.venv\Scripts\activate          # Windows
 
-# Install in editable mode
-pip install -e .
-pip install -e ".[dev]"    # With optional dependencies
-
-# Using virtualenv
-pip install virtualenv
-virtualenv venv
-source venv/bin/activate
-
-# Using pyenv for Python version management
-pyenv install 3.11.6
-pyenv local 3.11.6         # Set for current directory
-echo "3.11.6" > .python-version
+# Pin / install interpreters with uv (no separate pyenv needed)
+uv python install 3.11
+uv python pin 3.11              # Writes .python-version
 ```
 
 ## Package __init__.py
 
 ```python
-# src/myproject/__init__.py
-"""MyProject - A Python package."""
+# my_project/__init__.py  (library)
+"""my_project — a Python package."""
 
-from myproject.core import main_function, CoreClass
-from myproject.utils import helper_function
+from my_project.core import CoreClass, main_function
+from my_project.utils import helper_function
 
 __version__ = "0.1.0"
-__all__ = ["main_function", "CoreClass", "helper_function"]
+__all__ = ["CoreClass", "helper_function", "main_function"]
+```
 
-# Package-level configuration
-import logging
+```python
+# app/__init__.py  (runnable application)
+"""my-project application package."""
 
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+from app.cli import run
+
+__all__ = ["run"]
+```
+
+## CLI Entry Points
+
+```python
+# app/cli.py — wired via [project.scripts] run = "app:run"  (`uv run run`)
+import fire
+
+def run() -> None:
+    """Application entry point."""
+    # e.g. fire.Fire(commands), or uvicorn.run("app.main:api")
+    fire.Fire({"serve": serve, "migrate": migrate})
+
+if __name__ == "__main__":
+    run()
 ```
 
 ## Type Stub Files (py.typed)
 
 ```python
-# src/myproject/py.typed
-# Empty file indicates package includes type hints
+# my_project/py.typed
+# Empty file (PEP 561) — marks the package as typed so consumers get your hints.
 
-# src/myproject/__init__.pyi (optional stub file)
-from typing import Any
-
+# my_project/__init__.pyi (optional stub file)
 __version__: str
 
 def main_function(arg: str) -> None: ...
@@ -249,145 +286,57 @@ class CoreClass:
     def process(self) -> str: ...
 ```
 
-## CLI Entry Points
-
-```python
-# src/myproject/cli.py
-import sys
-from typing import NoReturn
-
-def main() -> NoReturn:
-    """Main CLI entry point."""
-    print("MyProject CLI")
-    sys.exit(0)
-
-if __name__ == "__main__":
-    main()
-```
-
 ## Requirements Files
 
+`uv` resolves and locks via `pyproject.toml` + `uv.lock` (committed). A `requirements.txt`
+is only needed for environments that can't run `uv` — export it:
+
 ```bash
-# requirements.txt - Production dependencies
-requests>=2.31.0,<3.0.0
-pydantic>=2.5.0,<3.0.0
-
-# requirements-dev.txt - Development dependencies
--r requirements.txt
-pytest>=7.4.0
-pytest-cov>=4.1.0
-mypy>=1.7.0
-black>=23.11.0
-ruff>=0.1.6
-
-# Generate from Poetry
-poetry export -f requirements.txt --output requirements.txt --without-hashes
-poetry export -f requirements.txt --with dev --output requirements-dev.txt
+uv export --no-emit-project --no-hashes -o requirements.txt
+uv export --only-group test --no-emit-project -o requirements-test.txt
 ```
 
 ## Building and Distribution
 
 ```bash
-# Build package
-python -m build
+# Libraries (package = true):
+uv build                        # Build sdist + wheel into dist/
+uv publish                      # Publish to PyPI (set UV_PUBLISH_TOKEN)
 
-# Check package
-twine check dist/*
-
-# Upload to PyPI
-twine upload dist/*
-
-# Upload to Test PyPI
-twine upload --repository testpypi dist/*
-
-# Install from Test PyPI
-pip install --index-url https://test.pypi.org/simple/ myproject
-```
-
-## Setuptools Configuration (Legacy)
-
-```python
-# setup.py (if not using pyproject.toml)
-from setuptools import setup, find_packages
-
-setup(
-    name="myproject",
-    version="0.1.0",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    python_requires=">=3.11",
-    install_requires=[
-        "requests>=2.31.0",
-        "pydantic>=2.5.0",
-    ],
-    extras_require={
-        "dev": [
-            "pytest>=7.4.0",
-            "mypy>=1.7.0",
-        ],
-    },
-    entry_points={
-        "console_scripts": [
-            "myproject=myproject.cli:main",
-        ],
-    },
-)
-```
-
-## Manifest for Package Data
-
-```
-# MANIFEST.in
-include README.md
-include LICENSE
-include pyproject.toml
-recursive-include src/myproject *.py
-recursive-include src/myproject py.typed
-recursive-include tests *.py
-prune docs/_build
+# Applications (package = false) are deployed, not published:
+# ship the repo + uv.lock and provision the target with `uv sync --no-dev`.
 ```
 
 ## Version Management
 
 ```python
-# src/myproject/__version__.py
-__version__ = "0.1.0"
+# Preferred: read the installed distribution's version (single source of truth).
+from importlib.metadata import version
 
-# src/myproject/__init__.py
-from myproject.__version__ import __version__
+__version__ = version("my-project")
 
-# Read version in pyproject.toml
-import tomli
+# Or read pyproject.toml directly (tomllib is stdlib on Python 3.11+).
+import tomllib
 from pathlib import Path
 
 def get_version() -> str:
     """Read the project version from pyproject.toml."""
     pyproject = Path(__file__).parent.parent / "pyproject.toml"
-    with open(pyproject, "rb") as f:
-        data = tomli.load(f)
+    with pyproject.open("rb") as f:
+        data = tomllib.load(f)
     return data["project"]["version"]
 ```
 
 ## Dependency Management Best Practices
 
-```python
-# Pin dependencies for applications
-requests==2.31.0
-pydantic==2.5.2
-
-# Use ranges for libraries
-requests>=2.31.0,<3.0.0
-pydantic>=2.5.0,<3.0.0
-
-# Lock files
-# Poetry: poetry.lock
-# pip: requirements.txt with exact versions
-pip freeze > requirements-lock.txt
-
-# Update dependencies
-poetry update
-pip install --upgrade -r requirements.txt
+```toml
+# Floors with lower bounds; cap a version only when a known break exists.
+dependencies = ["pydantic>=2.10", "httpx>=0.27,<1.0"]
 ```
+
+- **Applications**: commit `uv.lock` for reproducible installs (`uv sync` honours it); deploy with `uv sync --no-dev`.
+- **Libraries**: keep ranges in `[project.dependencies]` and do **not** commit a lock file.
+- Upgrade deliberately with `uv lock --upgrade`, then `uv sync` and run the test suite.
 
 ## CI/CD Integration
 
@@ -402,34 +351,32 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Run tests
-      run: |
-        pytest --cov --cov-report=xml
+      - name: Install dependencies
+        run: uv sync --all-groups
 
-    - name: Type check
-      run: mypy src
+      - name: Lint
+        run: |
+          uv run ruff check app tests
+          uv run black --check app tests
 
-    - name: Lint
-      run: |
-        black --check src tests
-        ruff check src tests
+      - name: Type check
+        run: uv run mypy app
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
+      - name: Test
+        run: uv run pytest --cov --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
 ```
 
 ## Pre-commit Hooks
@@ -437,29 +384,27 @@ jobs:
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/psf/black
-    rev: 23.11.0
-    hooks:
-      - id: black
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.6.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.1
+    rev: v1.11.2
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests]
+        additional_dependencies: [pydantic]
 ```
 
 ```bash
-# Install pre-commit
-pip install pre-commit
-pre-commit install
-
-# Run manually
-pre-commit run --all-files
+# Install and run (pre-commit lives in the dev group)
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```

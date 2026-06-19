@@ -23,7 +23,7 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 - Implementing async/await patterns for I/O operations
 - Setting up pytest test suites with fixtures and mocking
 - Creating Pythonic code with comprehensions, generators, context managers
-- Building packages with Poetry and proper project structure
+- Building packages with uv and a flat project layout
 - Performance optimization and profiling
 
 ## Core Workflow
@@ -47,7 +47,7 @@ Load detailed guidance based on context:
 | Async Patterns | `references/async-patterns.md` | async/await, asyncio, task groups |
 | Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools |
 | Testing | `references/testing.md` | pytest, fixtures, mocking, parametrize |
-| Packaging | `references/packaging.md` | poetry, pip, pyproject.toml, distribution |
+| Packaging | `references/packaging.md` | uv, pyproject.toml, flat/app layout, distribution |
 
 ## Constraints
 
@@ -266,6 +266,6 @@ When implementing Python features, provide:
 
 ## Knowledge Reference
 
-Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, Poetry, Pydantic, contextlib, collections.abc, Protocol
+Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, contextlib, collections.abc, Protocol
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)
