@@ -159,7 +159,6 @@ mark-parentheses = true
 
 [tool.mypy]
 python_version = "3.13"
-strict = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

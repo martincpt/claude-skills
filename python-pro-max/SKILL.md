@@ -1,16 +1,15 @@
 ---
 name: python-pro-max
-description: Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff. Invoke for type hints, async/await patterns, dataclasses, dependency injection, logging configuration, and structured error handling.
+description: Use when building Python 3.11+ applications (new projects target 3.13) to the team's conventions — type-annotated, async-first code; Pydantic and pydantic-settings for models and config; uv packaging in a flat app layout; Fire CLIs; pytest with fixtures and mocking; and MongoDB via the Beanie ODM. Validates with ruff, black, and mypy. Invoke for type hints, async patterns, data modeling, project/config scaffolding, CLI design, error handling, and Mongo/Beanie integration.
 license: MIT
 metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: language
-  triggers: Python development, type hints, async Python, pytest, mypy, dataclasses, Python best practices, Pythonic code, MongoDB, Beanie ODM
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: fastapi-expert, devops-engineer
+    author: Martin Trapp
+    version: "2.0.0"
+    domain: language
+    triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
+    role: specialist
+    scope: implementation
+    output-format: code
 ---
 
 # Python Pro Max
@@ -33,52 +32,58 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 2. **Design interfaces** — Define protocols, Pydantic models (or dataclasses), type aliases
 3. **Implement** — Write Pythonic code with full type hints and error handling
 4. **Test** — Create comprehensive pytest suite with >90% coverage
-5. **Validate** — Run `mypy --strict`, `black`, `ruff`
-   - If mypy fails: fix type errors reported and re-run before proceeding
-   - If tests fail: debug assertions, update fixtures, and iterate until green
-   - If ruff/black reports issues: apply auto-fixes, then re-validate
+5. **Validate** — Run `mypy`, `black`, `ruff` (or `pre-commit run --all-files`)
+    - If mypy fails: fix type errors reported and re-run before proceeding
+    - If tests fail: debug assertions, update fixtures, and iterate until green
+    - If ruff/black reports issues: apply auto-fixes, then re-validate
 
 ## Reference Guide
 
 Load detailed guidance based on context:
 
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Type System | `references/type-system.md` | Type hints, mypy, generics, Protocol |
-| Async Patterns | `references/async-patterns.md` | async/await, asyncio, task groups |
-| Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools |
-| Testing | `references/testing.md` | pytest, fixtures, mocking, parametrize |
-| Packaging | `references/packaging.md` | uv, pyproject.toml, flat/app layout, distribution |
-| MongoDB / Beanie | `references/mongo-beanie.md` | MongoDB, Beanie ODM, async documents, test DB fixtures |
+| Topic            | Reference                        | Load When                                              |
+| ---------------- | -------------------------------- | ------------------------------------------------------ |
+| Type System      | `references/type-system.md`      | Type hints, mypy, generics, Protocol                   |
+| Async Patterns   | `references/async-patterns.md`   | async/await, asyncio, task groups                      |
+| Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools             |
+| Testing          | `references/testing.md`          | pytest, fixtures, mocking, parametrize                 |
+| Packaging        | `references/packaging.md`        | uv, pyproject.toml, flat/app layout, distribution      |
+| MongoDB / Beanie | `references/mongo-beanie.md`     | MongoDB, Beanie ODM, async documents, test DB fixtures |
 
 ## Constraints
 
-### MUST DO
-- Type hints for all function signatures and class attributes
-- PEP 8 compliance with black formatting
-- Google-style docstrings — one line by default; full `Args`/`Returns`/`Raises` only on main components (see Docstring Style)
-- Test coverage exceeding 90% with pytest
-- Use `X | None` instead of `Optional[X]` (Python 3.10+)
+### MUST DO: Core — correctness & typing
+
+- Type hints on all function signatures and class attributes
+- `X | None` instead of `Optional[X]` (Python 3.10+)
 - Async/await for I/O-bound operations
-- Pydantic models for validation and data transfer; dataclasses (over manual `__init__`) for simple internal structures or when Pydantic is unavailable
-- Configuration via pydantic-settings — a `config.py` under the main package with a `Settings(BaseSettings)` class and an `lru_cache`d `get_settings()`; never scattered `os.getenv` calls or config dicts
-- Strict, self-describing types for any data with a known shape — a Pydantic model, dataclass, or `NamedTuple`; a plain `tuple[bool, str]` is fine for trivial returns
+- Pydantic models for validation and data transfer; dataclasses (over manual `__init__`) or `NamedTuple` for simple internal structures or when Pydantic is unavailable
+- Strict, self-describing types for any data with a known shape — never a `dict`/`Mapping` when the keys are known; a plain `tuple[bool, str]` is fine for trivial returns (see Data Modeling & Dictionaries)
+- Configuration via pydantic-settings — a `config.py` under the main package with a `Settings(BaseSettings)` class and an `lru_cache`d `get_settings()`
 - Context managers for resource handling
+- Test coverage exceeding 90% with pytest
+
+### MUST DO: House style — lint & conventions
+
+- PEP 8 + black formatting; code passes `ruff` and `mypy` (non-strict) clean
+- Google-style docstrings — one line by default; full `Args`/`Returns`/`Raises` only on main components (see Docstring Style)
 - CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
-- Error messages on their own line — assign `message = "..."`, then `raise SomeError(message)`; never a string/f-string literal inside the `raise` call (ruff EM101/EM102)
+- Error messages on their own line — `message = "..."`, then `raise SomeError(message)`; no literal inside the `raise` (ruff EM101/EM102)
 - String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
-- In `__all__`, reference `obj.__name__` for objects that have one (classes, functions) and a plain string only for values without one — a rename/typo then fails fast (requires ignoring ruff PLE0604)
+- `__all__` references `obj.__name__` for objects that have one, a plain string only for values without one — fails fast on rename/typo (ruff PLE0604 ignored)
+- pytest: parenthesized fixtures and marks, tuple `parametrize` names (ruff flake8-pytest-style)
 
 ### MUST NOT DO
+
 - Skip type annotations on public APIs
 - Use mutable default arguments
 - Mix sync and async code improperly
-- Ignore mypy errors in strict mode
-- Use bare except clauses
+- Use bare `except` clauses
 - Hardcode secrets or configuration
-- Use deprecated stdlib modules (use pathlib not os.path)
-- Use a `dict`/`Mapping` as an argument or return type when the keys are known ahead of time — model the data instead (see Data Modeling & Dictionaries)
+- Use deprecated stdlib modules (use `pathlib`, not `os.path`)
+- Use a `dict`/`Mapping` as an argument or return type when the keys are known ahead of time — model the data instead
 - Return ambiguous, unstructured data when the shape can be specified
+- Ignore `ruff` or `mypy` errors
 
 ## Docstring Style
 
@@ -86,7 +91,7 @@ Google style, but lean. Let descriptive names and type hints carry the weight.
 
 - **Default to one line.** When the name is well understood and descriptive (which it should be), a single summary line is enough. The type hints already document the parameters and return type.
 - **Full `Args`/`Returns`/`Raises` only on main or most important components** — primary entry points, public APIs, and functions with non-obvious behavior, edge cases, or raised exceptions worth calling out.
-- **Document every method, including dunders** — but keep trivial dunders' docstrings *generic and maintenance-free* so they never go stale as the body changes. Name the class in `__init__` (`"""Initialize the AppConfig instance."""`, not the body-specific `"""Store the host and port."""`); use `"""Return the string representation."""` for `__repr__`, `"""Enter the async context."""` for `__aenter__`, and so on. Named functions and methods get an intent-describing one-liner, which is name-derived and stays stable anyway.
+- **Document every method, including dunders** — but keep trivial dunders' docstrings _generic and maintenance-free_ so they never go stale as the body changes. Name the class in `__init__` (`"""Initialize the AppConfig instance."""`, not the body-specific `"""Store the host and port."""`); use `"""Return the string representation."""` for `__repr__`, `"""Enter the async context."""` for `__aenter__`, and so on. Named functions and methods get an intent-describing one-liner, which is name-derived and stays stable anyway.
 
 ```python
 # One line — the name and signature say the rest:
@@ -164,6 +169,7 @@ def parse_user(payload: dict[str, Any]) -> User:
 ## Code Examples
 
 ### Pydantic model with validation
+
 ```python
 from pydantic import BaseModel, Field, field_validator
 
@@ -183,6 +189,7 @@ class AppConfig(BaseModel):
 ```
 
 ### Type-annotated function with error handling
+
 ```python
 from pathlib import Path
 
@@ -213,6 +220,7 @@ def read_config(path: Path) -> AppConfig:
 ```
 
 ### Async pattern
+
 ```python
 import asyncio
 import httpx
@@ -226,6 +234,7 @@ async def fetch_all(urls: list[str]) -> list[bytes]:
 ```
 
 ### pytest fixture and parametrize
+
 ```python
 import pytest
 from pathlib import Path
@@ -248,32 +257,33 @@ def test_app_config_port_validation(port: int, valid: bool) -> None:
             AppConfig(host="localhost", port=port)
 ```
 
-### mypy strict configuration (pyproject.toml)
+### mypy configuration (pyproject.toml)
+
 ```toml
 [tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+python_version = "3.13"
+ignore_missing_imports = true
 ```
 
-Clean `mypy --strict` output looks like:
+Clean `mypy` output looks like:
+
 ```
 Success: no issues found in 12 source files
 ```
+
 Any reported error (e.g., `error: Function is missing a return type annotation`) must be resolved before the implementation is considered complete.
 
 ## Output Templates
 
 When implementing Python features, provide:
+
 1. Module file with complete type hints
 2. Test file with pytest fixtures
-3. Type checking confirmation (mypy --strict passes)
+3. Type checking confirmation (mypy passes)
 4. Brief explanation of Pythonic patterns used
 
 ## Knowledge Reference
 
 Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, uv, Pydantic, pydantic-settings, Fire, Beanie, MongoDB, mongomock-motor, contextlib, collections.abc, Protocol
 
-[Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro-max/)
+A complete, runnable reference scaffold (flat app layout, uv, config, Fire CLI, Beanie/Mongo, tests) lives in `examples/`.

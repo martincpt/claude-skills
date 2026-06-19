@@ -240,30 +240,19 @@ def query_user(conn: Connection, user_id: int) -> User:
 
 ## Mypy Configuration
 
+We run mypy **non-strict** — type hints everywhere plus the defaults catch what matters
+without fighting third-party stubs. `ignore_missing_imports` keeps unstubbed deps quiet.
+
 ```toml
 # pyproject.toml
 [tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_any_generics = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = "third_party.*"
+python_version = "3.13"
 ignore_missing_imports = true
 ```
+
+`ruff`'s `ANN` rules already enforce that annotations are present, so strict mode is
+redundant in practice. Tighten with individual flags (e.g. `disallow_untyped_defs`) only
+where a module warrants it.
 
 ## Common Type Patterns
 
