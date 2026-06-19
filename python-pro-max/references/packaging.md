@@ -261,6 +261,29 @@ uv python pin 3.11              # Writes .python-version
 __version__ = "0.1.0"
 ```
 
+When a package re-exports a public API, build `__all__` from each object's `__name__`
+rather than re-typing the string. A rename or typo then fails fast (the attribute won't
+exist) instead of silently dropping the export. Plain values have no `__name__`, so list
+those as strings.
+
+```python
+# my_project/__init__.py  (library re-exporting its public API)
+"""My Project package."""
+
+from my_project.core import CoreClass, main_function
+
+DEFAULT_TIMEOUT = 30  # a plain value has no __name__
+
+__all__ = [
+    CoreClass.__name__,      # -> "CoreClass"
+    main_function.__name__,  # -> "main_function"
+    "DEFAULT_TIMEOUT",       # string for objects without __name__
+]
+```
+
+> This relies on ruff ignoring `PLE0604` ("Invalid object in `__all__`, must contain only
+> strings"), which is in the standard ignore list above.
+
 ## CLI Entry Points
 
 Use the **Fire** package for CLIs. For anything beyond a single command, expose a

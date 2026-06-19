@@ -64,6 +64,7 @@ Load detailed guidance based on context:
 - CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
 - Error messages on their own line — assign `message = "..."`, then `raise SomeError(message)`; never a string/f-string literal inside the `raise` call (ruff EM101/EM102)
 - String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
+- In `__all__`, reference `obj.__name__` for objects that have one (classes, functions) and a plain string only for values without one — a rename/typo then fails fast (requires ignoring ruff PLE0604)
 
 ### MUST NOT DO
 - Skip type annotations on public APIs
