@@ -134,12 +134,11 @@ ignore = [
     "TD002",   # Missing author in TODO; try: `# TODO(<author_name>): ...`
     "TD003",   # Missing issue link on the line following this TODO
     "TRY400",  # Use `logging.exception` instead of `logging.error`
+    "PLE0604", # Invalid object in `__all__`, must contain only strings (So we can use __all__ = [MyClass.__name__])
     # FastAPI dependencies:
     "B008",    # Do not perform function call {name} in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
     # Better reading CRUD resources:
-    "RUF012",  # Mutable class attributes should be annotated with typing.ClassVar
-    # So we can use __all__ = [MyClass.__name__]
-    "PLE0604", # Invalid object in `__all__`, must contain only strings
+    "RUF012",  # Mutable class attributes should be annotated with typing.ClassVar    
     # New lint rules since python 3.13
     "PLC0415", # `import` should be at the top-level of a file
     "FAST002", # FastAPI dependency without `Annotated`
