@@ -386,36 +386,46 @@ async for i in AsyncRange(0, 5):
 
 ## Mixing Sync and Async
 
+These are utility-module helpers, so they're grouped under a domain class rather than
+left loose at module level — call sites read `AsyncBridge.run_in_executor(...)`, which
+says where the helper comes from (see *Grouping Functions Under Classes* in `SKILL.md`).
+
 ```python
-from concurrent.futures import ThreadPoolExecutor
 import functools
 
-# Run sync code in executor
-async def run_in_executor(func: Callable[..., T], *args: Any) -> T:
-    """Run a blocking function in the default executor."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, func, *args)
+class AsyncBridge:
+    """Helpers for crossing the sync/async boundary."""
 
-# Run async code from sync context
-def sync_wrapper(coro: Coroutine[None, None, T]) -> T:
-    """Run a coroutine to completion from synchronous code."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-# Async wrapper for sync function
-def to_async(func: Callable[..., T]) -> Callable[..., Coroutine[None, None, T]]:
-    """Wrap a sync function so it runs in an executor."""
-
-    @functools.wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> T:
-        """Run the wrapped function in an executor."""
+    @staticmethod
+    async def run_in_executor(func: Callable[..., T], *args: Any) -> T:
+        """Run a blocking function in the default executor."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None,
-            functools.partial(func, *args, **kwargs)
-        )
-    return wrapper
+
+        return await loop.run_in_executor(None, func, *args)
+
+    @staticmethod
+    def run_sync(coro: Coroutine[None, None, T]) -> T:
+        """Run a coroutine to completion from synchronous code."""
+        loop = asyncio.new_event_loop()
+
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    @staticmethod
+    def to_async(func: Callable[..., T]) -> Callable[..., Coroutine[None, None, T]]:
+        """Wrap a sync function so it runs in an executor."""
+
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            """Run the wrapped function in an executor."""
+            loop = asyncio.get_running_loop()
+
+            return await loop.run_in_executor(
+                None,
+                functools.partial(func, *args, **kwargs),
+            )
+
+        return wrapper
 ```

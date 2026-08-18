@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.0.0"
+    version: "2.1.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
     role: specialist
@@ -72,6 +72,9 @@ Load detailed guidance based on context:
 - String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
 - `__all__` references `obj.__name__` for objects that have one, a plain string only for values without one — fails fast on rename/typo (ruff PLE0604 ignored)
 - pytest: parenthesized fixtures and marks, tuple `parametrize` names (ruff flake8-pytest-style)
+- `from __future__ import annotations` only when a forward reference actually needs it (self-returning method, mutually-referencing classes) — never as a blanket import; skip it entirely on Python 3.14+ where PEP 649 makes it unnecessary (see Forward References)
+- Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
+- No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
 
 ### MUST NOT DO
 
@@ -83,6 +86,9 @@ Load detailed guidance based on context:
 - Use deprecated stdlib modules (use `pathlib`, not `os.path`)
 - Use a `dict`/`Mapping` as an argument or return type when the keys are known ahead of time — model the data instead
 - Return ambiguous, unstructured data when the shape can be specified
+- Add `from __future__ import annotations` out of habit when nothing needs a forward reference
+- Leave standalone functions loose in a utility module — group them under a named domain class
+- Write dense, unbroken method bodies — separate setup, main logic, and return with blank lines
 - Ignore `ruff` or `mypy` errors
 
 ## Docstring Style
@@ -164,6 +170,127 @@ def load_translations(locale: str) -> dict[str, str]:
 def parse_user(payload: dict[str, Any]) -> User:
     """Validate an inbound API/JSON payload into a User."""
     return User(**payload)  # or: User.model_validate(payload)
+```
+
+## Forward References
+
+Don't add `from __future__ import annotations` as a blanket import. Reach for it only when a forward reference genuinely needs it — a method that returns its own class, or two classes that reference each other. Otherwise omit it; the extra line is just noise. On projects that target **Python 3.14+ only**, skip it entirely — PEP 649 defers annotation evaluation, so forward references resolve without it.
+
+```python
+# Needed — the return annotation names the class before its body is complete:
+from __future__ import annotations
+
+class Node:
+    """A singly linked-list node."""
+
+    def __init__(self, value: int) -> None:
+        """Initialize the Node instance."""
+        self.value = value
+        self.next: Node | None = None
+
+    def append(self, value: int) -> Node:
+        """Append a value after this node and return the new node."""
+        self.next = Node(value)
+        return self.next
+
+# Not needed — no forward reference anywhere, so leave the import out:
+from pydantic import BaseModel
+
+class Point(BaseModel):
+    """Immutable 2D point."""
+
+    x: float
+    y: float
+```
+
+> For a method that returns *its own* class, `typing.Self` is often cleaner than a forward reference and needs no future import — prefer it where it fits (see `references/type-system.md`).
+
+## Whitespace & Visual Grouping
+
+Give executable code room to breathe. Inside a function or method body, separate logical groups of statements with blank lines the way you'd separate paragraphs — setup, main logic, and cleanup/return each stand apart. Favor scannability over compactness; err toward more whitespace, not less. In particular, never jam a `for`/`while`/`if` directly against the declarations it consumes.
+
+```python
+# Dense — everything crammed together, hard to scan:
+def summarize(rows: list[Row]) -> Summary:
+    """Summarize a batch of rows."""
+    total = 0
+    errors: list[str] = []
+    seen: set[int] = set()
+    for row in rows:
+        if row.id in seen:
+            errors.append(f"duplicate id {row.id}")
+            continue
+        seen.add(row.id)
+        total += row.amount
+    return Summary(total=total, errors=errors)
+
+# Breezy — setup, main loop, and return read as distinct groups:
+def summarize(rows: list[Row]) -> Summary:
+    """Summarize a batch of rows."""
+    total = 0
+    errors: list[str] = []
+    seen: set[int] = set()
+
+    for row in rows:
+        if row.id in seen:
+            errors.append(f"duplicate id {row.id}")
+            continue
+
+        seen.add(row.id)
+        total += row.amount
+
+    return Summary(total=total, errors=errors)
+```
+
+## Grouping Functions Under Classes
+
+A utility module shouldn't be a bag of loose functions. Group related helpers as `@staticmethod` or `@classmethod` under an appropriately named class, so the class prefix documents where each call comes from and what domain it belongs to. `AsyncUtils.execute_in_batches(...)` announces its origin at the call site; a naked `execute_in_batches(...)` could come from anywhere.
+
+```python
+import asyncio
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TypeVar
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+# Bad — async_utils.py as a pile of bare module-level functions:
+async def execute_in_batches(items, batch_size, handler): ...
+async def gather_with_limit(coros, limit): ...
+
+# Good — grouped under a domain class; call sites read as AsyncUtils.execute_in_batches(...):
+class AsyncUtils:
+    """Helpers for running coroutines with bounded concurrency."""
+
+    @staticmethod
+    async def execute_in_batches(
+        items: Sequence[T],
+        batch_size: int,
+        handler: Callable[[T], Awaitable[R]],
+    ) -> list[R]:
+        """Run handler over items in fixed-size batches, preserving order."""
+        results: list[R] = []
+
+        for start in range(0, len(items), batch_size):
+            batch = items[start : start + batch_size]
+            results.extend(await asyncio.gather(*(handler(item) for item in batch)))
+
+        return results
+
+    @staticmethod
+    async def gather_with_limit(
+        coros: Sequence[Awaitable[R]],
+        limit: int,
+    ) -> list[R]:
+        """Await all coroutines, running at most `limit` concurrently."""
+        semaphore = asyncio.Semaphore(limit)
+
+        async def _run(coro: Awaitable[R]) -> R:
+            """Await a single coroutine while holding the semaphore."""
+            async with semaphore:
+                return await coro
+
+        return await asyncio.gather(*(_run(coro) for coro in coros))
 ```
 
 ## Code Examples
