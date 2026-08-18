@@ -378,9 +378,11 @@ class Database:
 class CLI:
     """my-project command-line interface."""
 
+    db: Database  # exposes the `db` command group: `app db migrate`
+
     def __init__(self) -> None:
         """Initialize the CLI instance."""
-        self.db = Database()  # exposes the `db` command group: `app db migrate`
+        self.db = Database()
 
     def serve(self, host: str = "0.0.0.0", port: int = 8000) -> None:
         """Start the application server."""

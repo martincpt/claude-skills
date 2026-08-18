@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.1.0"
+    version: "2.2.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
     role: specialist
@@ -72,6 +72,7 @@ Load detailed guidance based on context:
 - String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
 - `__all__` references `obj.__name__` for objects that have one, a plain string only for values without one — fails fast on rename/typo (ruff PLE0604 ignored)
 - pytest: parenthesized fixtures and marks, tuple `parametrize` names (ruff flake8-pytest-style)
+- Declare every instance attribute at class level, annotation-only (`name: str`), then assign in `__init__` — the class header alone documents what state the object holds (see Instance Variables)
 - `from __future__ import annotations` only when a forward reference actually needs it (self-returning method, mutually-referencing classes) — never as a blanket import; skip it entirely on Python 3.14+ where PEP 649 makes it unnecessary (see Forward References)
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
@@ -88,6 +89,8 @@ Load detailed guidance based on context:
 - Return ambiguous, unstructured data when the shape can be specified
 - Add `from __future__ import annotations` out of habit when nothing needs a forward reference
 - Leave standalone functions loose in a utility module — group them under a named domain class
+- Leave instance attributes undeclared, discoverable only by reading `__init__` — annotate them at class level
+- Assign a value to a class-level attribute annotation meant to be per-instance — that creates a shared class variable (use `ClassVar` only for genuine shared constants)
 - Write dense, unbroken method bodies — separate setup, main logic, and return with blank lines
 - Ignore `ruff` or `mypy` errors
 
@@ -172,6 +175,61 @@ def parse_user(payload: dict[str, Any]) -> User:
     return User(**payload)  # or: User.model_validate(payload)
 ```
 
+## Instance Variables
+
+Declare every instance attribute at class level as an annotation-only line, then assign it in `__init__` (or wherever it's set). The class header becomes a single, honest inventory of the object's state — no reading through method bodies to discover what `self.*` attributes exist. Pydantic models and dataclasses already do this by construction; the convention matters for plain classes with an `__init__`.
+
+Keep the class-level line **annotation-only** — no value. A bare `name: str` declares an *instance* variable; adding a value (`name: str = ...`) creates a *class* variable shared across all instances, which is almost never what you want for per-instance state (and is a mutable-default trap). Assign the real value in `__init__`.
+
+```python
+import asyncio
+
+# Bad — attributes only discoverable by reading __init__; state is implicit:
+class BackgroundTaskManager:
+    """Track background tasks for coordinated shutdown."""
+
+    def __init__(self) -> None:
+        """Initialize the BackgroundTaskManager instance."""
+        self._tasks = set()
+
+# Good — the header lists every attribute and its type up front:
+class BackgroundTaskManager:
+    """Track background tasks for coordinated shutdown."""
+
+    _tasks: set[asyncio.Task[None]]
+
+    def __init__(self) -> None:
+        """Initialize the BackgroundTaskManager instance."""
+        self._tasks = set()
+
+# Wrong — a value at class level makes _tasks a *shared* class variable,
+# so every instance mutates the same set:
+class BackgroundTaskManager:
+    """Track background tasks for coordinated shutdown."""
+
+    _tasks: set[asyncio.Task[None]] = set()  # ← shared across all instances
+
+    def __init__(self) -> None:
+        """Initialize the BackgroundTaskManager instance."""
+        ...
+```
+
+Genuine class-level constants (shared, not per-instance) are the exception — annotate them `ClassVar` so the distinction is explicit:
+
+```python
+from typing import ClassVar
+
+class ApiClient:
+    """Client for the example API."""
+
+    BASE_URL: ClassVar[str] = "https://api.example.com"  # shared constant
+    timeout: int                                          # per-instance state
+
+    def __init__(self, timeout: int = 30) -> None:
+        """Initialize the ApiClient instance."""
+        self.timeout = timeout
+```
+
 ## Forward References
 
 Don't add `from __future__ import annotations` as a blanket import. Reach for it only when a forward reference genuinely needs it — a method that returns its own class, or two classes that reference each other. Otherwise omit it; the extra line is just noise. On projects that target **Python 3.14+ only**, skip it entirely — PEP 649 defers annotation evaluation, so forward references resolve without it.
@@ -183,10 +241,13 @@ from __future__ import annotations
 class Node:
     """A singly linked-list node."""
 
+    value: int
+    next: Node | None
+
     def __init__(self, value: int) -> None:
         """Initialize the Node instance."""
         self.value = value
-        self.next: Node | None = None
+        self.next = None
 
     def append(self, value: int) -> Node:
         """Append a value after this node and return the new node."""

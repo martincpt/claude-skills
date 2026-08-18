@@ -178,6 +178,8 @@ def fetch_user(user_id: int) -> User:
 class DataProcessor:
     """Compute statistics over a list of numbers."""
 
+    _data: list[int]
+
     def __init__(self, data: list[int]) -> None:
         """Initialize the DataProcessor instance."""
         self._data = data

@@ -85,10 +85,13 @@ from collections.abc import AsyncIterator
 class AsyncDatabaseConnection:
     """Async context manager around a database connection."""
 
+    url: str
+    _conn: Connection | None
+
     def __init__(self, url: str) -> None:
         """Initialize the AsyncDatabaseConnection instance."""
         self.url = url
-        self._conn: Connection | None = None
+        self._conn = None
 
     async def __aenter__(self) -> Self:
         """Enter the async context."""
@@ -209,10 +212,13 @@ import asyncio
 class SharedResource:
     """Resource guarded by a lock for safe concurrent updates."""
 
+    _lock: asyncio.Lock
+    _data: dict[str, int]
+
     def __init__(self) -> None:
         """Initialize the SharedResource instance."""
         self._lock = asyncio.Lock()
-        self._data: dict[str, int] = {}
+        self._data = {}
 
     async def update(self, key: str, value: int) -> None:
         """Atomically add a value under a key."""
@@ -226,6 +232,8 @@ class SharedResource:
 class RateLimiter:
     """Bound concurrency with a semaphore."""
 
+    _semaphore: asyncio.Semaphore
+
     def __init__(self, max_concurrent: int) -> None:
         """Initialize the RateLimiter instance."""
         self._semaphore = asyncio.Semaphore(max_concurrent)
@@ -238,6 +246,9 @@ class RateLimiter:
 # Event for coordination
 class AsyncWorker:
     """Worker coordinated by ready/shutdown events."""
+
+    _ready: asyncio.Event
+    _shutdown: asyncio.Event
 
     def __init__(self) -> None:
         """Initialize the AsyncWorker instance."""
@@ -330,9 +341,11 @@ from asyncio import create_task, Task
 class BackgroundTaskManager:
     """Track background tasks for coordinated shutdown."""
 
+    _tasks: set[Task[None]]
+
     def __init__(self) -> None:
         """Initialize the BackgroundTaskManager instance."""
-        self._tasks: set[Task[None]] = set()
+        self._tasks = set()
 
     def create_task(self, coro: Coroutine[None, None, None]) -> Task[None]:
         """Schedule a coroutine and track its task."""
@@ -359,6 +372,10 @@ manager.create_task(background_job())
 ```python
 class AsyncRange:
     """Async iterator over a range of integers."""
+
+    start: int
+    end: int
+    current: int
 
     def __init__(self, start: int, end: int) -> None:
         """Initialize the AsyncRange instance."""

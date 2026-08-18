@@ -56,9 +56,11 @@ def first_element(items: Sequence[T]) -> T | None:
 class Cache(Generic[K, V]):
     """Simple in-memory key-value cache."""
 
+    _data: dict[K, V]
+
     def __init__(self) -> None:
         """Initialize the Cache instance."""
-        self._data: dict[K, V] = {}
+        self._data = {}
 
     def get(self, key: K) -> V | None:
         """Return the cached value for a key, or None."""
@@ -99,6 +101,9 @@ class Drawable(Protocol):
 
 class Circle:
     """A drawable circle."""
+
+    radius: float
+    _color: str
 
     def __init__(self, radius: float, color: str) -> None:
         """Initialize the Circle instance."""
@@ -166,6 +171,8 @@ def create_user(data: UserDict) -> None:
 # Self type for method chaining
 class Builder:
     """Fluent builder for an integer value."""
+
+    _value: int
 
     def __init__(self) -> None:
         """Initialize the Builder instance."""
