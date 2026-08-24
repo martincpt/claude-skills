@@ -176,6 +176,7 @@ class MongoWithBeanie:
             is_testing: Force the mock (`True`) or real (`False`) client, overriding
                 the settings-derived default. `None` keeps `settings.is_testing`, so
                 existing callers are unaffected.
+
         """
         resolved_is_testing = settings.is_testing if is_testing is None else is_testing
 
