@@ -69,7 +69,7 @@ Load detailed guidance based on context:
 - Google-style docstrings — one line by default; full `Args`/`Returns`/`Raises` only on main components (see Docstring Style)
 - CLIs built with the Fire package — a class-based launcher where each method is a subcommand (nested classes for command groups)
 - Error messages on their own line — `message = "..."`, then `raise SomeError(message)`; no literal inside the `raise` (ruff EM101/EM102)
-- String-valued enums subclass `(str, Enum)`; enum members are `lower_case`
+- Enum members are `lower_case`
 - `__all__` references `obj.__name__` for objects that have one, a plain string only for values without one — fails fast on rename/typo (ruff PLE0604 ignored)
 - pytest: parenthesized fixtures and marks, tuple `parametrize` names (ruff flake8-pytest-style)
 - Declare every instance attribute at class level, annotation-only (`name: str`), then assign in `__init__` — the class header alone documents what state the object holds (see Instance Variables)

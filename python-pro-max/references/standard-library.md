@@ -367,10 +367,10 @@ def process_files(filenames: list[str]) -> None:
 ## Enum for Constants
 
 ```python
-from enum import Enum, auto, IntEnum, Flag
+from enum import Enum, StrEnum, auto, IntEnum, Flag
 
-# String-based enum — subclass (str, Enum) so members compare/serialize as str
-class Status(str, Enum):
+# String-based enum
+class Status(StrEnum):
     """Approval status values."""
 
     pending = "pending"

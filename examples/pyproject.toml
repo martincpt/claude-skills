@@ -88,9 +88,7 @@ ignore = [
     "PLR0913", # Too many arguments to function call (N > 5)
     "PLW0603", # Using the global statement to update `X` is discouraged
     "PTH123",  # `open()` should be replaced by `Path.open()`
-    "S101",    # Use of assert detected
-    "S603",    # `subprocess` call: check for execution of untrusted input
-    "S607",    # Starting a process with a partial executable path
+    "S101",    # Use of assert detected (used for cheap type narrowing to help Pylance)
     "SLF001",  # Private member accessed
     "TD002",   # Missing author in TODO; try: `# TODO(<author_name>): ...`
     "TD003",   # Missing issue link on the line following this TODO
