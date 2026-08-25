@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.2.0"
+    version: "2.3.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
     role: specialist
@@ -74,6 +74,7 @@ Load detailed guidance based on context:
 - pytest: parenthesized fixtures and marks, tuple `parametrize` names (ruff flake8-pytest-style)
 - Declare every instance attribute at class level, annotation-only (`name: str`), then assign in `__init__` — the class header alone documents what state the object holds (see Instance Variables)
 - `from __future__ import annotations` only when a forward reference actually needs it (self-returning method, mutually-referencing classes) — never as a blanket import; skip it entirely on Python 3.14+ where PEP 649 makes it unnecessary (see Forward References)
+- Relative imports for a package's own modules — `from .config import get_settings`, never `from app.config import get_settings` from inside `app`; absolute for anything outside the current package, and never `..` upward (ruff TID252) (see Relative Imports)
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
 
@@ -88,6 +89,7 @@ Load detailed guidance based on context:
 - Use a `dict`/`Mapping` as an argument or return type when the keys are known ahead of time — model the data instead
 - Return ambiguous, unstructured data when the shape can be specified
 - Add `from __future__ import annotations` out of habit when nothing needs a forward reference
+- Spell out the current package in its own imports (`from app.mongo.connector import ...` inside `app/mongo/`) or walk upward with `..` — use a single-dot relative import
 - Leave standalone functions loose in a utility module — group them under a named domain class
 - Leave instance attributes undeclared, discoverable only by reading `__init__` — annotate them at class level
 - Assign a value to a class-level attribute annotation meant to be per-instance — that creates a shared class variable (use `ClassVar` only for genuine shared constants)
@@ -265,6 +267,35 @@ class Point(BaseModel):
 ```
 
 > For a method that returns *its own* class, `typing.Self` is often cleaner than a forward reference and needs no future import — prefer it where it fits (see `references/type-system.md`).
+
+## Relative Imports
+
+Import a package's own modules relatively: `from .connector import MongoWithBeanie`, not
+`from app.mongo.connector import MongoWithBeanie` from inside `app/mongo`. The single dot
+marks the import as internal at a glance, keeps the line short, and survives a package
+rename. Everything outside the current package stays absolute, and imports never walk
+upward — `..` and higher are banned (ruff TID252, enabled by `select = ["ALL"]`).
+
+```python
+# app/mongo/__init__.py — connector.py is a direct child, so import it relatively:
+from .connector import MongoWithBeanie
+
+# app/mongo/fixtures.py — siblings relative, everything else absolute:
+from app.config import settings
+
+from .connector import MongoWithBeanie
+from .mock import MongomockCompat
+
+# Bad — the current package spelled out in full:
+from app.mongo.connector import MongoWithBeanie
+
+# Bad — walking up and out of the package:
+from ..config import settings
+```
+
+A nested target reached through a direct child keeps the single dot too — `from
+.models.user import User` in `app/__init__.py`. Import order is unchanged: ruff/isort
+already sorts the relative block last, separated by a blank line.
 
 ## Whitespace & Visual Grouping
 

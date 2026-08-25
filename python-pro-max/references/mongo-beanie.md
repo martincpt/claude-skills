@@ -51,7 +51,7 @@ app/mongo/
 # app/mongo/__init__.py
 """Mongo with Beanie integration."""
 
-from app.mongo.connector import MongoWithBeanie
+from .connector import MongoWithBeanie
 
 __all__ = [MongoWithBeanie.__name__]
 ```

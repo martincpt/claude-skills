@@ -334,7 +334,7 @@ those as strings.
 # my_project/__init__.py  (library re-exporting its public API)
 """My Project package."""
 
-from my_project.core import CoreClass, main_function
+from .core import CoreClass, main_function
 
 DEFAULT_TIMEOUT = 30  # a plain value has no __name__
 
