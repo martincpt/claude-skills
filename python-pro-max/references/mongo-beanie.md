@@ -380,8 +380,9 @@ async def mongo() -> AsyncIterable[MongoWithBeanie]:
 
     yield mongo
 
-    # Clean up: drop the database so each test starts fresh
-    await mongo.client.drop_database(mongo.database.name)
+    # Clear documents, not the database: dropping it drops the indexes, recreated once per session.
+    for collection_name in await mongo.database.list_collection_names():
+        await mongo.database[collection_name].delete_many({})
 
 
 def mock_cursor_query(mocker: MockerFixture, items: list) -> None:
