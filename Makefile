@@ -4,8 +4,9 @@ HOOKS_DIR    := $(CLAUDE_DIR)/hooks
 SETTINGS     := $(CLAUDE_DIR)/settings.json
 HOOK_SCRIPT  := enforce-python-pro-max.sh
 HOOK_CMD     := $$HOME/.claude/hooks/$(HOOK_SCRIPT)
+SKILL_NAME   := python-pro-max
 
-.PHONY: help install update-skill install-hook
+.PHONY: help install update-skill fetch-skill install-hook
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -13,10 +14,19 @@ help: ## Show available targets
 
 install: update-skill install-hook ## Install the skill and the hook
 
-update-skill: ## Copy python-pro-max into ~/.claude/skills/
+update-skill: ## Copy the skill into ~/.claude/skills/
 	@mkdir -p "$(SKILLS_DIR)"
-	cp -R ./python-pro-max "$(SKILLS_DIR)/"
-	@echo "Updated $(SKILLS_DIR)/python-pro-max"
+	rsync -a --delete --exclude '.DS_Store' \
+		"./$(SKILL_NAME)/" "$(SKILLS_DIR)/$(SKILL_NAME)/"
+	@echo "Updated $(SKILLS_DIR)/$(SKILL_NAME)"
+
+fetch-skill: ## Copy the skill back from ~/.claude/skills/ into this repo
+	@test -d "$(SKILLS_DIR)/$(SKILL_NAME)" \
+		|| { echo "Not found: $(SKILLS_DIR)/$(SKILL_NAME)"; exit 1; }
+	rsync -a --delete --exclude '.DS_Store' \
+		"$(SKILLS_DIR)/$(SKILL_NAME)/" "./$(SKILL_NAME)/"
+	@echo "Fetched $(SKILL_NAME) from $(SKILLS_DIR)"
+	@git status --short "./$(SKILL_NAME)"
 
 install-hook: ## Install the PreToolUse hook script and register it in settings.json
 	@command -v jq >/dev/null || { echo "jq is required"; exit 1; }

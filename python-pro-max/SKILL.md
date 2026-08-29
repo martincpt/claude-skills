@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.3.0"
+    version: "2.4.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
     role: specialist
@@ -77,6 +77,7 @@ Load detailed guidance based on context:
 - Relative imports for a package's own modules — `from .config import get_settings`, never `from app.config import get_settings` from inside `app`; absolute for anything outside the current package, and never `..` upward (ruff TID252) (see Relative Imports)
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
+- Test directories mirror the source **packages** (not modules), files are named for the behaviour they prove, and every test directory carries an `__init__.py` (see Test Layout)
 
 ### MUST NOT DO
 
@@ -94,6 +95,8 @@ Load detailed guidance based on context:
 - Leave instance attributes undeclared, discoverable only by reading `__init__` — annotate them at class level
 - Assign a value to a class-level attribute annotation meant to be per-instance — that creates a shared class variable (use `ClassVar` only for genuine shared constants)
 - Write dense, unbroken method bodies — separate setup, main logic, and return with blank lines
+- Split tests into `unit/` and `integration/` trees, or name a test file after the module it covers (`test_models_content_hash.py`) — mirror packages and name for behaviour instead
+- Leave a test directory without an `__init__.py` — collection breaks, and the error names an unrelated module
 - Ignore `ruff` or `mypy` errors
 
 ## Docstring Style
@@ -383,6 +386,78 @@ class AsyncUtils:
                 return await coro
 
         return await asyncio.gather(*(_run(coro) for coro in coros))
+```
+
+## Test Layout
+
+Mirror the source **packages** in the test tree, but name files for the **behaviour** they prove.
+Those two rules pull in different directions on purpose: the directory answers "where do I put this?",
+the filename answers "what does this prove?".
+
+```
+app/                                tests/
+  core/                               __init__.py          ← required, see below
+    mongo/                            conftest.py
+      links.py                        test_architecture.py ← codebase-wide guards
+      repository.py                   core/
+  domains/                              __init__.py
+    orders/                             mongo/
+      models.py                           __init__.py
+      services.py                         test_links.py
+                                          test_repository.py
+                                      domains/
+                                        orders/
+                                          test_models.py
+                                          test_pricing.py   ← behaviour, not a module
+                                          test_services.py
+```
+
+**Stop the mirror at package level, not one file per module.** One module is often covered by several
+behaviours (`test_pricing.py` and `test_discounts.py` may both exercise `models.py`); forcing them
+into a single `test_models.py` loses the naming that makes them findable, and keeping both breaks a
+module-level mirror anyway.
+
+**Never prefix a filename with its module** (`test_models_pricing.py`). That re-couples the name to a
+module boundary one level below where the mirror stops, so moving code between modules falsifies the
+filename — and it cannot express a behaviour spanning several modules. Put the subject in the module
+docstring instead, where it stays accurate and costs one line to update:
+
+```python
+"""Tests for order pricing, including bulk discounts.
+
+Subject: domains/orders/models.py, domains/orders/services.py
+"""
+```
+
+**Every test directory needs an `__init__.py`, including `tests/` itself.** This is correctness, not
+style. Under pytest's default prepend import mode a module's importable name comes from walking up
+while `__init__.py` files exist, and the directory where that walk stops goes on `sys.path`:
+
+- Missing at `tests/` → the project root never reaches `sys.path`; collection dies at `conftest.py`
+  with `ModuleNotFoundError: No module named 'app'`.
+- Missing on a nested directory → module names truncate to the part below the gap, so
+  `tests/core/email/test_client.py` imports as `email.test_client`, a top-level package named
+  `email` that collides with the standard library.
+
+Both failures name something other than the missing file, which is why the rule is worth stating
+rather than rediscovering. The same fully-qualified naming is what lets two `test_models.py` files in
+different directories coexist.
+
+**Do not mirror thin entry points.** CLI, API, and worker packages hold no logic worth unit-testing;
+what they invoke is tested where it lives. The absent directory documents the decision.
+
+**Guard tests need their own guard.** A test that reads source files (import-cycle checks, layering
+rules) must resolve paths from `__file__`, never the working directory — a cwd-relative path that
+resolves to nothing passes vacuously. Assert the paths exist:
+
+```python
+ROOT = Path(__file__).resolve().parents[1]
+
+def test_guarded_modules_exist() -> None:
+    """The guarded paths must resolve, or every guard below passes on nothing."""
+    missing = [p for p in GUARDED_MODULES if not p.is_file()]
+
+    assert not missing, f"guarded modules not found: {missing}"
 ```
 
 ## Code Examples

@@ -394,17 +394,63 @@ def test_user_creation(user: User) -> None:
 
 ## Test Organization
 
-```python
-# tests/
-#   conftest.py          - Shared fixtures
-#   test_user.py         - User tests
-#   test_api.py          - API tests
-#   integration/
-#     test_workflow.py   - Integration tests
-#   unit/
-#     test_models.py     - Unit tests
+See **Test Layout** in SKILL.md for the rules; this is the mechanical detail.
 
-# Fixture factory pattern
+Mirror the source **packages** to subpackage depth and name files for **behaviour**. Do not split the
+tree into `unit/` and `integration/`: that groups by a property of the test rather than by the code
+under test, so finding "the tests for orders" means looking in two places, and a test that grows a
+database dependency has to move directories. Use a marker if the distinction matters at runtime:
+
+```python
+# pyproject.toml
+# [tool.pytest.ini_options]
+# markers = ["slow: needs external services"]
+
+@pytest.mark.slow()
+async def test_against_real_backend() -> None:
+    """Exercise the path the in-memory backend cannot run."""
+```
+
+```
+tests/
+  __init__.py                    # required — see below
+  conftest.py                    # shared fixtures
+  test_architecture.py           # guards on the codebase itself
+  core/
+    __init__.py
+    mongo/
+      __init__.py
+      test_links.py
+      test_repository.py
+  domains/
+    __init__.py
+    orders/
+      __init__.py
+      test_models.py
+      test_pricing.py            # behaviour, not a module name
+```
+
+### Why every directory needs `__init__.py`
+
+Pytest's default `prepend` import mode derives a module's importable name by walking up while
+`__init__.py` files exist, then puts the directory where the walk stopped on `sys.path`. Two distinct
+failures follow from a missing one, and neither error message names the missing file:
+
+| Missing marker | Failure |
+| --- | --- |
+| `tests/__init__.py` | Project root never reaches `sys.path`; collection dies in `conftest.py` with `ModuleNotFoundError: No module named 'app'` |
+| A nested `__init__.py` | Module names truncate — `tests/core/email/test_client.py` imports as `email.test_client`, shadowing the stdlib `email` package |
+
+Fully-qualified names are also what let two `test_models.py` files coexist in different directories.
+Without them pytest reports an "import file mismatch" on the second one.
+
+The alternative is `--import-mode=importlib`, which removes the `sys.path` manipulation entirely and
+does not need the markers. It is the better mode for new projects; the markers are what you need when
+using the default.
+
+### Fixture factory pattern
+
+```python
 @pytest.fixture()
 def user_factory(db_session: Session):
     """Provide a factory that creates and cleans up users."""
