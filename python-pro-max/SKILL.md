@@ -1,12 +1,12 @@
 ---
 name: python-pro-max
-description: Use when building Python 3.11+ applications (new projects target 3.13) to the team's conventions — type-annotated, async-first code; Pydantic and pydantic-settings for models and config; uv packaging in a flat app layout; Fire CLIs; pytest with fixtures and mocking; and MongoDB via the Beanie ODM. Validates with ruff, black, and mypy. Invoke for type hints, async patterns, data modeling, project/config scaffolding, CLI design, error handling, and Mongo/Beanie integration.
+description: Use when building Python 3.11+ applications (new projects target 3.13) to the team's conventions — type-annotated, async-first code; Pydantic and pydantic-settings for models and config; uv packaging in a flat app layout; Fire CLIs; pytest with fixtures and mocking; and MongoDB via the Beanie ODM. Covers the repository/service split, dependency injection, and the core/domains package architecture. Validates with ruff, black, and mypy. Invoke for type hints, async patterns, data modeling, project/config scaffolding, CLI design, error handling, Mongo/Beanie integration, data-access layering, and project structure.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.4.0"
+    version: "2.5.0"
     domain: language
-    triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, Python best practices
+    triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, repository pattern, service layer, dependency injection, project structure, Python best practices
     role: specialist
     scope: implementation
     output-format: code
@@ -41,14 +41,16 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 
 Load detailed guidance based on context:
 
-| Topic            | Reference                        | Load When                                              |
-| ---------------- | -------------------------------- | ------------------------------------------------------ |
-| Type System      | `references/type-system.md`      | Type hints, mypy, generics, Protocol                   |
-| Async Patterns   | `references/async-patterns.md`   | async/await, asyncio, task groups                      |
-| Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools             |
-| Testing          | `references/testing.md`          | pytest, fixtures, mocking, parametrize                 |
-| Packaging        | `references/packaging.md`        | uv, pyproject.toml, flat/app layout, distribution      |
-| MongoDB / Beanie | `references/mongo-beanie.md`     | MongoDB, Beanie ODM, async documents, test DB fixtures |
+| Topic                   | Reference                                 | Load When                                                |
+| ----------------------- | ----------------------------------------- | -------------------------------------------------------- |
+| Type System             | `references/type-system.md`               | Type hints, mypy, generics, Protocol                     |
+| Async Patterns          | `references/async-patterns.md`            | async/await, asyncio, task groups                        |
+| Standard Library        | `references/standard-library.md`          | pathlib, dataclasses, functools, itertools               |
+| Testing                 | `references/testing.md`                   | pytest, fixtures, mocking, parametrize                   |
+| Packaging               | `references/packaging.md`                 | uv, pyproject.toml, flat/app layout, distribution        |
+| Project Architecture    | `references/project-architecture.md`      | core/ vs domains/, module layout, layering, entry points |
+| MongoDB / Beanie        | `references/mongo-beanie.md`              | MongoDB, Beanie ODM, async documents, test DB fixtures   |
+| Repositories & Services | `references/repositories-and-services.md` | Data access, repository/service split, DI, write schemas |
 
 ## Constraints
 
@@ -62,6 +64,8 @@ Load detailed guidance based on context:
 - Configuration via pydantic-settings — a `config.py` under the main package with a `Settings(BaseSettings)` class and an `lru_cache`d `get_settings()`
 - Context managers for resource handling
 - Test coverage exceeding 90% with pytest
+- Data access through a repository per document type, with writes **opted into one operation at a time** (`Creatable`/`Updatable`/`Deletable`) and the writable field set declared as a Pydantic create/update schema (see Repositories & Services)
+- Policy — guards, orderings, rollbacks, checks that read another document — in a **service** that composes repositories by constructor injection; never in the repository, never in the entry point
 
 ### MUST DO: House style — lint & conventions
 
@@ -78,6 +82,8 @@ Load detailed guidance based on context:
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
 - Test directories mirror the source **packages** (not modules), files are named for the behaviour they prove, and every test directory carries an `__init__.py` (see Test Layout)
+- An application with more than one business area splits `core/` (cross-cutting infrastructure, no business logic) from `domains/<area>/` (business logic, independent of each other), with `api/`/`workflows/`/`cli/` as thin entry points that hold none (see Project Architecture)
+- Services named for the **workflow** they perform (`RegistryService`, `CurationService`); repositories named for the **document** they serve (`CategoryRepository`)
 
 ### MUST NOT DO
 
@@ -97,6 +103,11 @@ Load detailed guidance based on context:
 - Write dense, unbroken method bodies — separate setup, main logic, and return with blank lines
 - Split tests into `unit/` and `integration/` trees, or name a test file after the module it covers (`test_models_content_hash.py`) — mirror packages and name for behaviour instead
 - Leave a test directory without an `__init__.py` — collection breaks, and the error names an unrelated module
+- Hand a repository every write operation by default, or let it decide anything — a guard, an ordering, a rollback, a reference check — that belongs to a service
+- Accept `**fields` or maintain a `read_only_fields` list in place of a declared update schema — a runtime filter silently drops what it matches, whereas an omitted field is caught by mypy at the call site
+- Call the ODM's own `insert()`/`delete()` from a service, or make a service inherit from a repository instead of composing it
+- Put business logic in a route, worker task, CLI command, or dashboard page
+- Import `domains/` from `core/`, import one domain from another, or collect helpers into a `utils.py` grab bag
 - Ignore `ruff` or `mypy` errors
 
 ## Docstring Style

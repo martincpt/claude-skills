@@ -52,6 +52,13 @@ my-project/                 # repository: slugified name
     └── test_app.py
 ```
 
+> **This is the layout for a single-purpose application.** Once the app has more than one business
+> area — or more than one entry point into the same logic — it needs an internal boundary: a `core/`
+> package for cross-cutting infrastructure, `domains/<area>/` for business logic, and thin
+> `api/`/`workflows/`/`cli/` entry points. See `references/project-architecture.md`, which extends
+> this layout rather than replacing it (the flat app package, `config.py`, `uv`, and everything
+> below in this file stay exactly as they are).
+
 ## pyproject.toml Configuration
 
 Built from the team's standard template — `uv`, flat **app** layout, `select = ["ALL"]`,

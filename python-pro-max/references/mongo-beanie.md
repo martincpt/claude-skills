@@ -7,6 +7,11 @@ goes through a single connector class that also swaps in an in-memory mock for t
 the mock is fully self-contained, so testing mode works from a plain `init(is_testing=True)`
 call without any pytest fixture.
 
+> This reference covers the **connection**: documents, the connector, and the test backend. The
+> **data-access layer** built on top of it — the generic `Repository` ladder, write schemas, the
+> service boundary, and dependency injection — is `references/repositories-and-services.md`. Read
+> that one before writing a query anywhere outside a repository.
+
 ## Document Models
 
 A `Document` is a Pydantic model bound to a collection. Declare the collection name (and any
@@ -417,3 +422,13 @@ dev = [
 
 `beanie` pulls in `pymongo`; `mongomock-motor` (test-only) provides the in-memory client that
 `MongomockCompat` patches and the `mongo` fixture relies on.
+
+## Next: the data-access layer
+
+Application code should not call `Document.find()` directly. Queries and writes live behind a
+repository per document type, with writes opted into one operation at a time and the writable field
+set declared as a Pydantic schema; anything that *decides* — a guard, an ordering, a rollback —
+lives in a service that composes those repositories. See
+`references/repositories-and-services.md`, which also records the two measured Beanie behaviours
+(late validation on a partial `$set`, and an embedded copy written for a raw `Link` payload) that
+its update path exists to contain.
