@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.5.0"
+    version: "2.6.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, repository pattern, service layer, dependency injection, project structure, Python best practices
     role: specialist
@@ -84,6 +84,8 @@ Load detailed guidance based on context:
 - Test directories mirror the source **packages** (not modules), files are named for the behaviour they prove, and every test directory carries an `__init__.py` (see Test Layout)
 - An application with more than one business area splits `core/` (cross-cutting infrastructure, no business logic) from `domains/<area>/` (business logic, independent of each other), with `api/`/`workflows/`/`cli/` as thin entry points that hold none (see Project Architecture)
 - Services named for the **workflow** they perform (`RegistryService`, `CurationService`); repositories named for the **document** they serve (`CategoryRepository`)
+- Beanie queries built from **operators and comparison expressions**, never a hand-written mapping literal — `Set({Model.field: v})` not `{"$set": {...}}`, and `Model.field == v` never `Eq(...)`; the only exceptions are a field path assembled at runtime (passed *through* an operator) and an operation Beanie has no operator for (see MongoDB / Beanie)
+- A method forwarding Beanie expressions types them as Beanie does — `*expressions: Mapping[Any, Any] | bool`, not `Any`; a standard-library type still constrains callers where the lint gate leaves `beanie` unresolved
 
 ### MUST NOT DO
 
@@ -103,6 +105,8 @@ Load detailed guidance based on context:
 - Write dense, unbroken method bodies — separate setup, main logic, and return with blank lines
 - Split tests into `unit/` and `integration/` trees, or name a test file after the module it covers (`test_models_content_hash.py`) — mirror packages and name for behaviour instead
 - Leave a test directory without an `__init__.py` — collection breaks, and the error names an unrelated module
+- Write a Mongo query or update as a mapping literal (`{"$set": ...}`, `{"$or": ...}`) when a Beanie operator or comparison expression expresses it — the mapping's field names are strings nothing resolves, so a rename leaves it matching nothing without raising
+- Use the `Eq` operator where `Model.field == value` says the same thing
 - Hand a repository every write operation by default, or let it decide anything — a guard, an ordering, a rollback, a reference check — that belongs to a service
 - Accept `**fields` or maintain a `read_only_fields` list in place of a declared update schema — a runtime filter silently drops what it matches, whereas an omitted field is caught by mypy at the call site
 - Call the ODM's own `insert()`/`delete()` from a service, or make a service inherit from a repository instead of composing it

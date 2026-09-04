@@ -227,6 +227,133 @@ async with MongoWithBeanie.lifespan():
 If you need the connection outside a `lifespan` scope, `init`/`close` remain available to call
 directly.
 
+## Query construction: operators and expressions, never a mapping literal
+
+Beanie accepts a raw pymongo mapping and its own constructs interchangeably, so a codebase drifts
+into using both unless the choice is made once. Make it: **every query and update is built from
+Beanie's own constructs.**
+
+- **A comparison expression** for a field predicate — `Product.category == slug`,
+  `Category.parent.id == category.id`.
+- **An operator** from `beanie.operators` for everything else — `In`, `Or`, `And`, `RegEx`, `Set`,
+  `AddToSet`, `Pull`, `Inc`, `Unset`.
+
+A hand-written `{"$set": {...}}` or `{"$or": [...]}` is not a neutral alternative spelling. **It is
+the one with a failure mode.** A mapping names its fields as strings that nothing resolves, so
+renaming a field leaves every mapping referencing it running and matching *nothing* — no error, no
+warning, just a shorter result set indistinguishable from an honest empty. An expression is resolved
+against the model where it is written, so the same rename fails there instead.
+
+```python
+import re
+
+from beanie.operators import AddToSet, In, Or, RegEx, Set
+
+# Bad — field names are strings; a rename silently empties the result:
+await Product.find({"category": old_slug}).update({"$set": {"category": new_slug}})
+await Snapshot.find({"_id": snapshot_id}).update({"$set": {"status": "processed"}})
+pattern = {"$regex": re.escape(term), "$options": "i"}
+products = Product.find({"$or": [{"name": pattern}, {"sku": pattern}]})
+
+# Good — resolved against the model, so a rename fails at the expression:
+await Product.find(Product.category == old_slug).update(Set({Product.category: new_slug}))
+await Snapshot.find(Snapshot.id == snapshot_id).update(Set({Snapshot.status: Status.processed}))
+pattern = re.escape(term)
+products = Product.find(
+    Or(RegEx(Product.name, pattern, "i"), RegEx(Product.sku, pattern, "i")),
+)
+```
+
+**Equality is `field == value`, never the `Eq` operator.** Beanie supports the comparison directly,
+and it is the form that reads as an expression. Admitting `Eq(field, value)` alongside it would
+reintroduce exactly the two-spellings-for-one-query problem the rule exists to remove.
+
+**Two exceptions, each because no expression exists to write:**
+
+1. **A field path assembled at runtime from partial strings** — `f"attributes.{index}.slug"`,
+   `f"translations.{locale}.name"` — may be a mapping, since the path is not known statically and so
+   cannot resolve against the model. Where the operation has an operator, pass the runtime mapping
+   *through* it, so the operator boundary stays visible even where the path is dynamic:
+
+   ```python
+   # Good — dynamic paths, still inside the operator:
+   changes = {f"attributes.{i}.slug": new_slug for i, a in enumerate(product.attributes) if ...}
+   await product.update(Set(changes))
+
+   # Bad — the mapping escapes the operator for no reason:
+   await product.update({"$set": changes})
+   ```
+
+2. **An operation Beanie provides no operator for** may be a mapping or a direct driver call
+   (`collection.distinct(...)`).
+
+### Type the query entry points as Beanie does
+
+A repository method that forwards expressions should declare Beanie's own argument type rather than
+`Any`:
+
+```python
+def query(
+    self,
+    *expressions: Mapping[Any, Any] | bool,
+    sort: Any = None,
+    skip: int | None = None,
+    limit: int | None = None,
+) -> QueryResult[T]: ...
+```
+
+The two arms are not decorative. `Mapping` admits the operator objects — `BaseOperator` subclasses
+`collections.abc.Mapping` — and `bool` admits `Model.field == value`, which a type checker reads as
+`bool` because Beanie's runtime substitution of an `ExpressionField` is invisible to static analysis.
+
+**Declaring it on your own method is what makes it enforceable, and this is worth knowing precisely.**
+A typical pre-commit mypy hook installs only `pydantic` into its isolated environment, and with
+`ignore_missing_imports = true` every `beanie` import then resolves to `Any` — `reveal_type(Document)`
+and `reveal_type(Document.find)` both report `Any` there, so **Beanie's own signature constrains
+nothing in the gate**. `Mapping` comes from the standard library, so an annotation written in your
+own module survives the unresolved import and still rejects a bad call. Measured: with the parameter
+typed `Any`, `self.query(42)` passes the hook; typed `Mapping[Any, Any] | bool`, it fails with
+`expected "Mapping[Any, Any] | bool"`.
+
+(The other way to close that gap is to add `beanie` to the hook's `additional_dependencies`. Worth
+doing — but it surfaces every error the missing package was hiding, so it is its own piece of work,
+and the annotation is worth having either way.)
+
+### Guard it with a test
+
+The rule is mechanical, so let a test hold it rather than a review. A dict *literal* carrying a
+`$`-prefixed key is precisely the hand-written form, and it needs no exception list — both permitted
+exceptions build their mapping at runtime, so neither is a literal:
+
+```python
+def test_queries_use_operators_not_mapping_literals() -> None:
+    """No query is written as a mapping literal with a Mongo operator key."""
+    offenders: list[str] = []
+
+    for path in data_access_modules():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+
+            operator_keys = [
+                key.value
+                for key in node.keys
+                if isinstance(key, ast.Constant)
+                and isinstance(key.value, str)
+                and key.value.startswith("$")
+            ]
+
+            if operator_keys:
+                offenders.append(f"{path}:{node.lineno}: {operator_keys}")
+
+    assert not offenders, f"queries written as mapping literals: {offenders}"
+```
+
+Check such a guard against the code *before* the cleanup — if it does not flag the sites you just
+converted, it is not testing what you think it is.
+
 ## Testing
 
 `mongomock-motor` doesn't implement every API surface Beanie touches during init and

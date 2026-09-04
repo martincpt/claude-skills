@@ -54,7 +54,7 @@ reintroduces a silent failure.
 # app/core/mongo/repository.py
 """Generic data access for Beanie documents."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar, get_args
 
@@ -158,7 +158,7 @@ class Repository(Generic[T]):
 
     def query(
         self,
-        *expressions: Any,
+        *expressions: Mapping[Any, Any] | bool,
         sort: Any = None,
         skip: int | None = None,
         limit: int | None = None,
@@ -169,11 +169,19 @@ class Repository(Generic[T]):
         database, and the count is deferred, so awaiting this would mean awaiting something that
         does nothing in order to obtain things that must be awaited later.
 
-        Expressions are Beanie's own (`Model.field == value`) and are forwarded untouched. They are
-        mappings once evaluated, so this is not about keeping dictionaries out of the query path —
-        it is that an expression is resolved against the model where it is written, so a renamed
-        field fails there, whereas a hand-written mapping fails silently as a query matching
-        nothing.
+        Expressions are Beanie's own (`Model.field == value`, or an operator) and are forwarded
+        untouched. They are mappings once evaluated, so this is not about keeping dictionaries out of
+        the query path — it is that an expression is resolved against the model where it is written,
+        so a renamed field fails there, whereas a hand-written mapping fails silently as a query
+        matching nothing.
+
+        The parameter takes **Beanie's own argument type**, not `Any`, and the two arms are not
+        decorative. `Mapping` admits the operator objects, `beanie.operators.BaseOperator` being a
+        `collections.abc.Mapping` subclass; `bool` admits `Model.field == value`, which a type
+        checker reads as `bool` because Beanie's runtime substitution of an `ExpressionField` is
+        invisible to static analysis.
+
+        Declaring it here is what makes it enforceable — see the note on the lint gate below.
 
         The cursor and the count are built from **two separate queries** sharing the same
         expressions. Beanie's `count()` honours pagination already applied to a query — over ten
@@ -338,7 +346,7 @@ Beanie's typed expressions instead of a hand-rolled query language.
 import re
 from typing import Any
 
-from beanie.operators import In
+from beanie.operators import In, Or, RegEx, Set
 
 from app.core.mongo import Creatable, QueryResult, Updatable, WritableRepository
 
@@ -380,8 +388,10 @@ class ProductRepository(
         if term.strip():
             # Escaped: the term is user input, and an unescaped `(` or `*` would either error or
             # silently change what the query means.
-            pattern = {"$regex": re.escape(term.strip()), "$options": "i"}
-            expressions.append({"$or": [{"name": pattern}, {"sku": pattern}]})
+            pattern = re.escape(term.strip())
+            expressions.append(
+                Or(RegEx(Product.name, pattern, "i"), RegEx(Product.sku, pattern, "i")),
+            )
 
         if statuses:
             expressions.append(In(Product.status, statuses))
@@ -399,7 +409,7 @@ class ProductRepository(
         collision is the service's business (see `CategoryService.rename_slug`).
         """
         result = await Product.find(Product.category == old_slug).update(
-            {"$set": {"category": new_slug}},
+            Set({Product.category: new_slug}),
         )
 
         return int(result.modified_count)
@@ -425,6 +435,11 @@ class CategoryRepository(WritableRepository[Category, CategoryCreate, CategoryUp
   the next reader knows it was a decision.
 - **A method that decides nothing.** "Count what references this" belongs here; "refuse the delete
   when the count is non-zero" does not.
+- **Build every query from operators and comparison expressions, never a mapping literal.**
+  `Set({Product.category: new_slug})`, not `{"$set": {"category": new_slug}}`; `field == value`,
+  never the `Eq` operator. A mapping's field names are strings nothing resolves, so a rename leaves
+  it matching nothing, silently. The two exceptions (runtime-assembled paths, and operations Beanie
+  has no operator for) and the guard test are in `references/mongo-beanie.md`.
 - **Reference-rewriting queries live on the repository, not the model.** A model that queries
   another document type is how an import graph closes into a cycle — two model modules each
   importing the other's document to rewrite references to their own key.
@@ -638,7 +653,7 @@ silent one. Spell the reasoning out in the docstring — it is invisible from th
           referencing it — indistinguishable from a dismissal, silently gone. Invisible, and
           unrecoverable without an audit.
 
-        Both writes are idempotent (`$addToSet`, and a `$set` of a fixed value), so retrying an
+        Both writes are idempotent (`AddToSet`, and a `Set` of a fixed value), so retrying an
         interrupted attach converges rather than duplicating or failing.
         """
         reference_added = await self.products.add_source_ref(product.id, snapshot.id)
@@ -758,6 +773,9 @@ async def test_update_rejects_a_duplicate_choice_before_writing(mongo) -> None:
 | Service calls `await document.insert()` | Bypasses the schema and the opt-in ladder | Go through the repository, or widen it deliberately |
 | `class CategoryService(CategoryRepository)` | Cannot express two collaborators; publishes the data-access surface | Compose; inject |
 | Repository refuses a delete when referenced | Policy in the mechanism layer; the next caller adds a different rule next to it | Count in the repository, refuse in the service |
+| `update({"$set": ...})`, `find({"field": v})` | Field names are strings nothing resolves — a rename leaves the query matching nothing, with no error | `Set({Model.field: v})`, `Model.field == v` |
+| `Eq(Model.field, value)` | A second spelling for the query `==` already expresses, which is how a codebase ends up with both | `Model.field == value` |
+| `*expressions: Any` on a query entry point | Accepts an integer; and where the hook env leaves `beanie` unresolved, Beanie's own signature checks nothing | `Mapping[Any, Any] \| bool` |
 | Model queries another document type | Closes the import graph into a cycle | Put the cross-document query on the repository |
 | A global `registry_service = RegistryService()` singleton | Un-substitutable in tests, and hides the dependency list | Default-construct at the call site |
 | Business logic in a route/task/page | Untestable without the framework, and duplicated across entry points | Thin entry point calling one service operation |
