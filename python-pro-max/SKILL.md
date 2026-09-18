@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.6.0"
+    version: "2.7.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, repository pattern, service layer, dependency injection, project structure, Python best practices
     role: specialist
@@ -81,6 +81,8 @@ Load detailed guidance based on context:
 - Relative imports for a package's own modules — `from .config import get_settings`, never `from app.config import get_settings` from inside `app`; absolute for anything outside the current package, and never `..` upward (ruff TID252) (see Relative Imports)
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
+- Name a value before accumulating it (`.append()`/`.extend()`), iterating it (`for`/`async for`), or chaining it through calls that each do independent work — including a constructed object (a repository, a service, a client) called on in the same expression that builds it — but a single expression that just builds a *value* for the one call or `return` that consumes it needs no name of its own; reach for the walrus operator only when the named value is used nowhere else in the surrounding block, and fall back to a plain statement the moment it's needed again (see Call-Site Style)
+- Positional arguments when the parameter's meaning is obvious and the call fits one line; keyword arguments once the meaning isn't obvious or the call must wrap across lines — but don't invent per-item keywords for an already self-describing variadic call just because it wraps (see Call-Site Style)
 - Test directories mirror the source **packages** (not modules), files are named for the behaviour they prove, and every test directory carries an `__init__.py` (see Test Layout)
 - An application with more than one business area splits `core/` (cross-cutting infrastructure, no business logic) from `domains/<area>/` (business logic, independent of each other), with `api/`/`workflows/`/`cli/` as thin entry points that hold none (see Project Architecture)
 - Services named for the **workflow** they perform (`RegistryService`, `CurationService`); repositories named for the **document** they serve (`CategoryRepository`)
@@ -108,6 +110,7 @@ Load detailed guidance based on context:
 - Write a Mongo query or update as a mapping literal (`{"$set": ...}`, `{"$or": ...}`) when a Beanie operator or comparison expression expresses it — the mapping's field names are strings nothing resolves, so a rename leaves it matching nothing without raising
 - Use the `Eq` operator where `Model.field == value` says the same thing
 - Hand a repository every write operation by default, or let it decide anything — a guard, an ordering, a rollback, a reference check — that belongs to a service
+- Accumulate, iterate, or chain independent calls on a value that was never given a name — build it inline inside an `.append()`/`.extend()`, a `for`/`async for` header, or a sequence of calls that each do real work, including calling a method on a freshly constructed repository/service/client in the same expression — instead of naming it first (see Call-Site Style)
 - Accept `**fields` or maintain a `read_only_fields` list in place of a declared update schema — a runtime filter silently drops what it matches, whereas an omitted field is caught by mypy at the call site
 - Call the ODM's own `insert()`/`delete()` from a service, or make a service inherit from a repository instead of composing it
 - Put business logic in a route, worker task, CLI command, or dashboard page
@@ -383,7 +386,8 @@ class AsyncUtils:
 
         for start in range(0, len(items), batch_size):
             batch = items[start : start + batch_size]
-            results.extend(await asyncio.gather(*(handler(item) for item in batch)))
+            responses = await asyncio.gather(*(handler(item) for item in batch))
+            results.extend(responses)
 
         return results
 
@@ -517,6 +521,7 @@ def read_config(path: Path) -> AppConfig:
     """
     # A dict is fine as an intermediate for genuinely dynamic input...
     values: dict[str, str] = {}
+
     for line in path.read_text(encoding="utf-8").splitlines():
         key, sep, value = line.partition("=")
         if not sep:

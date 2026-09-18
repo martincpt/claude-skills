@@ -390,7 +390,10 @@ class ProductRepository(
             # silently change what the query means.
             pattern = re.escape(term.strip())
             expressions.append(
-                Or(RegEx(Product.name, pattern, "i"), RegEx(Product.sku, pattern, "i")),
+                Or(
+                    RegEx(Product.name, pattern, "i"),
+                    RegEx(Product.sku, pattern, "i"),
+                ),
             )
 
         if statuses:
@@ -751,13 +754,14 @@ async def delete_category(
 ```python
 async def test_update_rejects_a_duplicate_choice_before_writing(mongo) -> None:
     """A partial $set validates after writing, so the repository must validate first."""
-    definition = await AttributeDefinitionRepository().create(...)
+    repository = AttributeDefinitionRepository()
+    definition = await repository.create(...)
 
     with pytest.raises(ValidationError):
-        await AttributeDefinitionRepository().update(definition, AttributeDefinitionUpdate(...))
+        await repository.update(definition, AttributeDefinitionUpdate(...))
 
     # The assertion that matters: the raise alone passes against the broken version.
-    stored = await AttributeDefinitionRepository().read(definition.id)
+    stored = await repository.read(definition.id)
     assert [choice.slug for choice in stored.choices] == ["original"]
 ```
 

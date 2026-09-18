@@ -361,6 +361,7 @@ def test_addition_commutative(a: int, b: int) -> None:
 def test_sorted_is_ordered(lst: list[int]) -> None:
     """sorted() returns a non-decreasing sequence."""
     sorted_lst = sorted(lst)
+
     for i in range(len(sorted_lst) - 1):
         assert sorted_lst[i] <= sorted_lst[i + 1]
 

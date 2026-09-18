@@ -248,7 +248,8 @@ async def delete_category(
     service: Annotated[RegistryService, Depends(RegistryService)],
 ) -> None:
     """Delete a category, refusing while anything still references it."""
-    category = await CategoryRepository().by_slug(slug)
+    repository = CategoryRepository()
+    category = await repository.by_slug(slug)
 
     if category is None:
         raise HTTPException(status_code=404)

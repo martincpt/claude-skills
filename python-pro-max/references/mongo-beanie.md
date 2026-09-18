@@ -260,7 +260,10 @@ await Product.find(Product.category == old_slug).update(Set({Product.category: n
 await Snapshot.find(Snapshot.id == snapshot_id).update(Set({Snapshot.status: Status.processed}))
 pattern = re.escape(term)
 products = Product.find(
-    Or(RegEx(Product.name, pattern, "i"), RegEx(Product.sku, pattern, "i")),
+    Or(
+        RegEx(Product.name, pattern, "i"),
+        RegEx(Product.sku, pattern, "i"),
+    ),
 )
 ```
 
