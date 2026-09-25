@@ -4,7 +4,7 @@ description: Use when building Python 3.11+ applications (new projects target 3.
 license: MIT
 metadata:
     author: Martin Trapp
-    version: "2.7.0"
+    version: "2.8.0"
     domain: language
     triggers: Python development, type hints, async Python, pytest, mypy, ruff, uv, Pydantic, pydantic-settings, Fire CLI, dataclasses, MongoDB, Beanie ODM, repository pattern, service layer, dependency injection, project structure, Python best practices
     role: specialist
@@ -41,16 +41,17 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 
 Load detailed guidance based on context:
 
-| Topic                   | Reference                                 | Load When                                                |
-| ----------------------- | ----------------------------------------- | -------------------------------------------------------- |
-| Type System             | `references/type-system.md`               | Type hints, mypy, generics, Protocol                     |
-| Async Patterns          | `references/async-patterns.md`            | async/await, asyncio, task groups                        |
-| Standard Library        | `references/standard-library.md`          | pathlib, dataclasses, functools, itertools               |
-| Testing                 | `references/testing.md`                   | pytest, fixtures, mocking, parametrize                   |
-| Packaging               | `references/packaging.md`                 | uv, pyproject.toml, flat/app layout, distribution        |
-| Project Architecture    | `references/project-architecture.md`      | core/ vs domains/, module layout, layering, entry points |
-| MongoDB / Beanie        | `references/mongo-beanie.md`              | MongoDB, Beanie ODM, async documents, test DB fixtures   |
-| Repositories & Services | `references/repositories-and-services.md` | Data access, repository/service split, DI, write schemas |
+| Topic                   | Reference                                 | Load When                                                                                  |
+| ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Type System             | `references/type-system.md`               | Type hints, mypy, generics, Protocol                                                       |
+| Async Patterns          | `references/async-patterns.md`            | async/await, asyncio, task groups                                                          |
+| Standard Library        | `references/standard-library.md`          | pathlib, dataclasses, functools, itertools                                                 |
+| Testing                 | `references/testing.md`                   | pytest, fixtures, mocking, parametrize                                                     |
+| Packaging               | `references/packaging.md`                 | uv, pyproject.toml, flat/app layout, distribution                                          |
+| Project Architecture    | `references/project-architecture.md`      | core/ vs domains/, module layout, layering, entry points                                   |
+| MongoDB / Beanie        | `references/mongo-beanie.md`              | MongoDB, Beanie ODM, async documents, test DB fixtures                                     |
+| Repositories & Services | `references/repositories-and-services.md` | Data access, repository/service split, DI, write schemas                                   |
+| Call-Site Style         | `references/call-site-style.md`           | Every call, `.append()`, `for` header: naming intermediates, walrus, positional vs keyword |
 
 ## Constraints
 
@@ -81,12 +82,12 @@ Load detailed guidance based on context:
 - Relative imports for a package's own modules — `from .config import get_settings`, never `from app.config import get_settings` from inside `app`; absolute for anything outside the current package, and never `..` upward (ruff TID252) (see Relative Imports)
 - Breezy, visually grouped method bodies — blank lines separate logical groups (setup / main logic / return); never jam a `for`/`while`/`if` against the declarations it consumes (see Whitespace & Visual Grouping)
 - No bare functions in utility modules — group related helpers as `@staticmethod`/`@classmethod` under a domain class (`AsyncUtils.execute_in_batches(...)`, not a naked `execute_in_batches(...)`) so call sites are self-documenting (see Grouping Functions Under Classes)
-- Name a value before accumulating it (`.append()`/`.extend()`), iterating it (`for`/`async for`), or chaining it through calls that each do independent work — including a constructed object (a repository, a service, a client) called on in the same expression that builds it — but a single expression that just builds a *value* for the one call or `return` that consumes it needs no name of its own; reach for the walrus operator only when the named value is used nowhere else in the surrounding block, and fall back to a plain statement the moment it's needed again (see Call-Site Style)
-- Positional arguments when the parameter's meaning is obvious and the call fits one line; keyword arguments once the meaning isn't obvious or the call must wrap across lines — but don't invent per-item keywords for an already self-describing variadic call just because it wraps (see Call-Site Style)
+- Name a value before accumulating it (`.append()`/`.extend()`), iterating it (`for`/`async for`), or chaining it through calls that each do independent work — including a constructed object (a repository, a service, a client) called on in the same expression that builds it — but a single expression that just builds a _value_ for the one call or `return` that consumes it needs no name of its own; reach for the walrus operator only when the named value is used nowhere else in the surrounding block, and fall back to a plain statement the moment it's needed again (see `references/call-site-style.md`)
+- Positional arguments when the parameter's meaning is obvious and the call fits one line; keyword arguments once the meaning isn't obvious or the call must wrap across lines — but don't invent per-item keywords for an already self-describing variadic call just because it wraps (see `references/call-site-style.md`)
 - Test directories mirror the source **packages** (not modules), files are named for the behaviour they prove, and every test directory carries an `__init__.py` (see Test Layout)
 - An application with more than one business area splits `core/` (cross-cutting infrastructure, no business logic) from `domains/<area>/` (business logic, independent of each other), with `api/`/`workflows/`/`cli/` as thin entry points that hold none (see Project Architecture)
 - Services named for the **workflow** they perform (`RegistryService`, `CurationService`); repositories named for the **document** they serve (`CategoryRepository`)
-- Beanie queries built from **operators and comparison expressions**, never a hand-written mapping literal — `Set({Model.field: v})` not `{"$set": {...}}`, and `Model.field == v` never `Eq(...)`; the only exceptions are a field path assembled at runtime (passed *through* an operator) and an operation Beanie has no operator for (see MongoDB / Beanie)
+- Beanie queries built from **operators and comparison expressions**, never a hand-written mapping literal — `Set({Model.field: v})` not `{"$set": {...}}`, and `Model.field == v` never `Eq(...)`; the only exceptions are a field path assembled at runtime (passed _through_ an operator) and an operation Beanie has no operator for (see MongoDB / Beanie)
 - A method forwarding Beanie expressions types them as Beanie does — `*expressions: Mapping[Any, Any] | bool`, not `Any`; a standard-library type still constrains callers where the lint gate leaves `beanie` unresolved
 
 ### MUST NOT DO
@@ -110,7 +111,7 @@ Load detailed guidance based on context:
 - Write a Mongo query or update as a mapping literal (`{"$set": ...}`, `{"$or": ...}`) when a Beanie operator or comparison expression expresses it — the mapping's field names are strings nothing resolves, so a rename leaves it matching nothing without raising
 - Use the `Eq` operator where `Model.field == value` says the same thing
 - Hand a repository every write operation by default, or let it decide anything — a guard, an ordering, a rollback, a reference check — that belongs to a service
-- Accumulate, iterate, or chain independent calls on a value that was never given a name — build it inline inside an `.append()`/`.extend()`, a `for`/`async for` header, or a sequence of calls that each do real work, including calling a method on a freshly constructed repository/service/client in the same expression — instead of naming it first (see Call-Site Style)
+- Call a method on a freshly constructed repository/service/client in one expression (`await Repo().find(...)`), put a literal tuple/list in a `for` header, nest an inner lookup call inside another call, or leave a wrapped call positional — the MUST DO rules above, with bad/good examples in `references/call-site-style.md`
 - Accept `**fields` or maintain a `read_only_fields` list in place of a declared update schema — a runtime filter silently drops what it matches, whereas an omitted field is caught by mypy at the call site
 - Call the ODM's own `insert()`/`delete()` from a service, or make a service inherit from a repository instead of composing it
 - Put business logic in a route, worker task, CLI command, or dashboard page
@@ -202,7 +203,7 @@ def parse_user(payload: dict[str, Any]) -> User:
 
 Declare every instance attribute at class level as an annotation-only line, then assign it in `__init__` (or wherever it's set). The class header becomes a single, honest inventory of the object's state — no reading through method bodies to discover what `self.*` attributes exist. Pydantic models and dataclasses already do this by construction; the convention matters for plain classes with an `__init__`.
 
-Keep the class-level line **annotation-only** — no value. A bare `name: str` declares an *instance* variable; adding a value (`name: str = ...`) creates a *class* variable shared across all instances, which is almost never what you want for per-instance state (and is a mutable-default trap). Assign the real value in `__init__`.
+Keep the class-level line **annotation-only** — no value. A bare `name: str` declares an _instance_ variable; adding a value (`name: str = ...`) creates a _class_ variable shared across all instances, which is almost never what you want for per-instance state (and is a mutable-default trap). Assign the real value in `__init__`.
 
 ```python
 import asyncio
@@ -287,7 +288,7 @@ class Point(BaseModel):
     y: float
 ```
 
-> For a method that returns *its own* class, `typing.Self` is often cleaner than a forward reference and needs no future import — prefer it where it fits (see `references/type-system.md`).
+> For a method that returns _its own_ class, `typing.Self` is often cleaner than a forward reference and needs no future import — prefer it where it fits (see `references/type-system.md`).
 
 ## Relative Imports
 
